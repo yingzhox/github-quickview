@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The dock now re-renders when GitHub routes between pull request sections. Its view is
+  built with `history.pushState`, which fires none of the `turbo:load`, `turbo:render`,
+  `pjax:end` or `popstate` events the extension listened for, and the navigation observer
+  ignored attribute changes — so moving from Conversation to Files changed left the dock
+  showing the previous section, including a **Comment** button with no composer to jump to.
+  Chrome's Navigation API is now the primary signal, and the observer also watches
+  `aria-current`.
+- The current section is marked with a tinted ring so it is no longer mistakable for a
+  hovered one.
+
 ### Changed
 
 - Redesigned the dock as a keyboard-first command bar: monospace type, the shortcut key set

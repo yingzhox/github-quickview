@@ -155,6 +155,22 @@ class FakeWindow {
     this.innerHeight = 1000;
     this.scrollY = 0;
     this.listeners = new Map();
+    // Chrome's Navigation API, which is what actually reports GitHub's
+    // same-document pushState routing.
+    this.navigation = {
+      listeners: new Map(),
+      addEventListener(type, listener) {
+        const list = this.listeners.get(type) || [];
+        list.push(listener);
+        this.listeners.set(type, list);
+      },
+      removeEventListener(type, listener) {
+        this.listeners.set(type, (this.listeners.get(type) || []).filter((i) => i !== listener));
+      },
+      dispatch(type, event = {}) {
+        for (const listener of this.listeners.get(type) || []) listener(event);
+      },
+    };
     this.frames = [];
     this.timers = [];
     this.intersectionObservers = [];
@@ -400,4 +416,36 @@ test("scroll progress renders as a ten-cell meter and still reports a percentage
   assert.equal(on.textContent.length + off.textContent.length, 10);
   assert.equal(progress.getAttribute("aria-label"), "Page position 80%");
   assert.equal(root.style["--gqv-progress"], "80%");
+});
+
+test("dock re-renders when GitHub routes between sections without a turbo event", () => {
+  const fixture = buildFixture();
+  let location = new URL("https://github.com/octo/repo/pull/123");
+  const controller = createFixtureController(fixture, () => location);
+  controller.start();
+
+  const dock = () => fixture.document.querySelector("#github-quickview");
+  assert.ok(dock().querySelector("[data-gqv-comment]"), "conversation offers Comment");
+
+  // GitHub's pull request view routes with history.pushState, which fires
+  // no turbo:load, turbo:render, pjax:end or popstate event.
+  location = new URL("https://github.com/octo/repo/pull/123/changes");
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+
+  assert.equal(
+    dock().querySelector("[data-gqv-comment]"),
+    null,
+    "Comment must not survive onto Files changed, where there is no composer"
+  );
+  assert.ok(dock().querySelector("[data-gqv-review]"), "Files changed offers Review");
+  // The fake selector engine has no compound-selector support, so assert
+  // on the section attribute and read the class off that element.
+  const changes = dock().querySelector('[data-gqv-section="changes"]');
+  const conversation = dock().querySelector('[data-gqv-section="conversation"]');
+  assert.match(changes.className, /\bis-active\b/, "Files changed is the current section");
+  assert.doesNotMatch(conversation.className, /\bis-active\b/, "Conversation is no longer current");
+  assert.equal(changes.getAttribute("aria-current"), "page");
+
+  controller.destroy();
 });

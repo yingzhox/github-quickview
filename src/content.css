@@ -102,9 +102,11 @@
   color: #ffffff;
 }
 
+/* Hover also fills with --gqv-panel, so the current section needs
+   something hover never has: a tinted ring to match its inverted key. */
 #github-quickview .gh-quickview__tab.is-active {
   background: var(--gqv-panel);
-  box-shadow: inset 0 0 0 1px var(--gqv-line);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gqv-cyan) 38%, transparent);
   color: #ffffff;
 }
 

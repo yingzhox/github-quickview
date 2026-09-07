@@ -8,6 +8,8 @@
 
   var ROOT_ID = 'github-quickview';
   var navSelector = 'nav[aria-label="Pull request navigation"]';
+  var NAVIGATION_EVENTS = ['turbo:load', 'turbo:render', 'pjax:end', 'popstate'];
+
   var shortcutTargets = {
     KeyC: '[data-gqv-section="conversation"]',
     KeyF: '[data-gqv-section="changes"]',
@@ -325,7 +327,12 @@
       } else {
         mutationObserver.disconnect();
       }
-      mutationObserver.observe(nav, { childList: true, subtree: true });
+      mutationObserver.observe(nav, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-current', 'aria-selected', 'href']
+      });
       var parent = nav.parentElement;
       if (parent && parent !== documentNode.body && parent !== documentNode.documentElement) {
         mutationObserver.observe(parent, { childList: true });
@@ -392,9 +399,17 @@
         return;
       }
       installed = true;
-      ['turbo:load', 'turbo:render', 'pjax:end', 'popstate'].forEach(function (eventName) {
+      NAVIGATION_EVENTS.forEach(function (eventName) {
         windowNode.addEventListener(eventName, scheduleRefresh);
       });
+      // GitHub's pull request view routes with history.pushState, which
+      // fires none of the events above: popstate only covers back and
+      // forward. Chrome's Navigation API is the one signal that reports a
+      // same-document route change, so without it the dock keeps whatever
+      // section it first rendered.
+      if (windowNode.navigation && windowNode.navigation.addEventListener) {
+        windowNode.navigation.addEventListener('navigate', scheduleRefresh);
+      }
       windowNode.addEventListener('scroll', onScroll, { passive: true });
       windowNode.addEventListener('keydown', onKeyDown);
       refresh();
@@ -407,9 +422,12 @@
         windowNode.clearTimeout(reviewResetTimer);
       }
       stopMutationObserver();
-      ['turbo:load', 'turbo:render', 'pjax:end', 'popstate'].forEach(function (eventName) {
+      NAVIGATION_EVENTS.forEach(function (eventName) {
         windowNode.removeEventListener(eventName, scheduleRefresh);
       });
+      if (windowNode.navigation && windowNode.navigation.removeEventListener) {
+        windowNode.navigation.removeEventListener('navigate', scheduleRefresh);
+      }
       windowNode.removeEventListener('scroll', onScroll);
       windowNode.removeEventListener('keydown', onKeyDown);
       removeRoot();
