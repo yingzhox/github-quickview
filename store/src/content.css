@@ -1,0 +1,216 @@
+/*
+ * Command bar.
+ *
+ * A terminal slab rather than a translucent pill: monospace throughout,
+ * the shortcut set first and bright, the label trailing in lowercase.
+ *
+ * It deliberately keeps its own palette instead of following GitHub's
+ * light and dark themes. A command bar that repaints itself to match the
+ * page stops reading as a command bar, so the slab stays constant and
+ * only its shadow adapts.
+ *
+ * The typeface is a system monospace stack on purpose: the extension
+ * makes no network requests, so a web font is not available to it.
+ */
+#github-quickview.gh-quickview {
+  --gqv-bg: #0b0e14;
+  --gqv-panel: #131a24;
+  --gqv-line: #232a36;
+  --gqv-fg: #c9d4e5;
+  --gqv-dim: #58657a;
+  --gqv-key-bg: #1c2432;
+  --gqv-cyan: #7dd3fc;
+  --gqv-green: #4ade9b;
+  --gqv-on-key: #0b0e14;
+  --gqv-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100vw - 2rem);
+  padding: 6px 8px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  isolation: isolate;
+  color: var(--gqv-fg);
+  background: var(--gqv-bg);
+  border: 1px solid var(--gqv-line);
+  border-radius: 8px;
+  box-shadow:
+    0 22px 50px -18px rgba(1, 4, 9, 0.6),
+    0 4px 12px -6px rgba(1, 4, 9, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font: 12px/1.5 var(--gqv-mono);
+}
+
+#github-quickview[hidden] { display: none; }
+
+/* The prompt glyph is ornament with a job: it marks the bar as a place
+   where typed keys mean something. */
+#github-quickview .gh-quickview__prompt {
+  flex: none;
+  padding: 0 6px 0 2px;
+  color: var(--gqv-green);
+  font-weight: 700;
+}
+
+#github-quickview .gh-quickview__tabs,
+#github-quickview .gh-quickview__controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#github-quickview .gh-quickview__tabs {
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: none;
+}
+#github-quickview .gh-quickview__tabs::-webkit-scrollbar { display: none; }
+
+#github-quickview .gh-quickview__tab,
+#github-quickview button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  color: var(--gqv-fg);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 400;
+  /* Labels are lowercased visually only; the accessible name keeps its
+     original casing from the aria-label. */
+  text-transform: lowercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+#github-quickview .gh-quickview__tab:hover,
+#github-quickview button:hover {
+  background: var(--gqv-panel);
+  color: #ffffff;
+}
+
+/* Hover also fills with --gqv-panel, so the current section needs
+   something hover never has: a tinted ring to match its inverted key. */
+#github-quickview .gh-quickview__tab.is-active {
+  background: var(--gqv-panel);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gqv-cyan) 38%, transparent);
+  color: #ffffff;
+}
+
+/* The key is the primary object here, not an annotation on a button. */
+#github-quickview .gh-quickview__shortcut {
+  display: inline-flex;
+  flex: none;
+  min-width: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  color: var(--gqv-cyan);
+  background: var(--gqv-key-bg);
+  border: 0;
+  border-radius: 3px;
+  font: 700 11px/1 var(--gqv-mono);
+  text-transform: none;
+}
+
+#github-quickview .gh-quickview__tab.is-active .gh-quickview__shortcut {
+  color: var(--gqv-on-key);
+  background: var(--gqv-cyan);
+}
+
+#github-quickview .gh-quickview__action { color: var(--gqv-green); }
+
+#github-quickview .gh-quickview__action .gh-quickview__shortcut {
+  color: var(--gqv-on-key);
+  background: var(--gqv-green);
+}
+
+#github-quickview .gh-quickview__action:hover {
+  background: var(--gqv-panel);
+  color: var(--gqv-green);
+}
+
+#github-quickview .gh-quickview__controls {
+  flex: none;
+  justify-content: flex-end;
+}
+
+#github-quickview .gh-quickview__divider {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 5px;
+  background: var(--gqv-line);
+}
+
+/* Progress is drawn as a meter rather than written as a number. The
+   accessible name on the output still reports the percentage. */
+#github-quickview .gh-quickview__progress {
+  flex: none;
+  padding-left: 4px;
+  letter-spacing: -1px;
+}
+
+#github-quickview .gh-quickview__meter-on { color: var(--gqv-cyan); }
+#github-quickview .gh-quickview__meter-off { color: var(--gqv-dim); }
+
+#github-quickview :is(a, button):focus-visible {
+  outline: 2px solid var(--gqv-cyan);
+  outline-offset: -1px;
+}
+
+/* Density steps down as the window narrows: full labels, then short
+   labels, then keys alone. */
+#github-quickview .gh-quickview__label-short { display: none; }
+
+@media (max-width: 860px) {
+  #github-quickview .gh-quickview__label-full { display: none; }
+  #github-quickview .gh-quickview__label-short { display: inline; }
+}
+
+@media (max-width: 620px) {
+  #github-quickview.gh-quickview {
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    max-width: none;
+    transform: none;
+  }
+
+  #github-quickview .gh-quickview__tabs { flex: 1; }
+  #github-quickview .gh-quickview__prompt { display: none; }
+}
+
+@media (max-width: 480px) {
+  #github-quickview .gh-quickview__label-full,
+  #github-quickview .gh-quickview__label-short { display: none; }
+
+  #github-quickview .gh-quickview__tab,
+  #github-quickview button { gap: 0; padding: 3px 5px; }
+
+  #github-quickview .gh-quickview__progress { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #github-quickview.gh-quickview { scroll-behavior: auto; }
+  #github-quickview :is(a, button) { transition: none; }
+}
+
+/* Windows and Linux render "Alt+C" rather than "⌥C", which needs more
+   room than a single-glyph key cap allows. */
+@media (min-width: 481px) {
+  #github-quickview .gh-quickview__shortcut { max-width: 5.5em; overflow: hidden; }
+}

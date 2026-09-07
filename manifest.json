@@ -3,11 +3,24 @@
   "name": "GitHub Quickview",
   "version": "0.4.0",
   "description": "GitHub Quickview keeps pull request navigation and end-of-flow actions within reach.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["src/core.js", "src/content.js"],
-      "css": ["src/content.css"],
+      "matches": [
+        "https://github.com/*/*/pull/*"
+      ],
+      "js": [
+        "src/core.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/content.css"
+      ],
       "run_at": "document_idle"
     }
   ]

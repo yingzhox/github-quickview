@@ -6,7 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 
-const PAYLOAD = ['manifest.json', 'src', 'README.md', 'LICENSE'];
+const PAYLOAD = ['manifest.json', 'src', 'icons', 'README.md', 'LICENSE'];
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 

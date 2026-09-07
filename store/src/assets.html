@@ -1,0 +1,309 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Store assets</title>
+<link rel="stylesheet" href="content.css">
+<style>
+  :root {
+    --ink: #0b0e14;
+    --panel: #131a24;
+    --line: #232a36;
+    --cyan: #7dd3fc;
+    --green: #4ade9b;
+    --dim: #58657a;
+    --fg: #c9d4e5;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
+    /* GitHub Primer, light */
+    --gh-canvas: #f6f8fa; --gh-bg: #fff; --gh-border: #d1d9e0;
+    --gh-fg: #1f2328; --gh-muted: #59636e; --gh-accent: #0969da;
+    --gh-add: #dafbe1; --gh-del: #ffebe9;
+    --gh-addfg: #116329; --gh-delfg: #82071e;
+    --gh-plate: #eaeef2;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: var(--ui); background: #fff; }
+
+  .frame { display: none; overflow: hidden; position: relative; }
+  .frame.on { display: block; }
+
+  /* The dock is fixed in the page; pin it inside the artboard instead. */
+  #github-quickview.gh-quickview { position: absolute; z-index: 20; }
+
+  /* ---------- Icon ---------- */
+  #icon { width: 128px; height: 128px; }
+  .icon-art {
+    width: 128px; height: 128px;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, #1a2230, var(--ink) 62%);
+    border-radius: 28px;
+  }
+  .icon-glyph {
+    display: flex; align-items: center; gap: 10px;
+    font: 700 86px/1 var(--mono);
+  }
+  .icon-glyph .chev { color: var(--green); transform: translateY(-2px); }
+  .icon-glyph .caret {
+    width: 15px; height: 52px;
+    border-radius: 3px;
+    background: var(--cyan);
+  }
+
+  /* ---------- Shared screenshot shell ---------- */
+  .shot { width: 1280px; height: 800px; background: #eef1f5; padding: 56px 64px;
+    display: flex; flex-direction: column; }
+  .shot .body { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+  .shot h1 {
+    margin: 0 0 6px;
+    font-size: 40px; font-weight: 700; letter-spacing: -.025em; color: #14161b;
+  }
+  .shot p.sub {
+    margin: 0 0 34px;
+    font-size: 19px; line-height: 1.45; color: #565c68; max-width: 62ch;
+  }
+  .browser {
+    position: relative;
+    flex: 1; min-height: 0;
+    border-radius: 12px; overflow: hidden;
+    background: var(--gh-bg);
+    border: 1px solid #cdd3dc;
+    box-shadow: 0 26px 60px -28px rgba(20,22,27,.5);
+  }
+
+  /* ---------- GitHub mock ---------- */
+  .gh { font-size: 13px; color: var(--gh-fg); height: 100%; }
+  .gh-head { padding: 16px 22px 0; background: var(--gh-bg); border-bottom: 1px solid var(--gh-border); }
+  .gh-title { margin: 0 0 7px; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .gh-title span { color: var(--gh-muted); font-weight: 400; }
+  .gh-sub { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--gh-muted); font-size: 12.5px; }
+  .gh-open { padding: 4px 11px; border-radius: 999px; background: #1f883d; color: #fff; font-size: 12px; font-weight: 500; }
+  .gh-tabs { display: flex; gap: 20px; font-size: 14px; }
+  .gh-tabs span { padding: 8px 2px 11px; color: var(--gh-muted); border-bottom: 2px solid transparent; }
+  .gh-tabs span.on { color: var(--gh-fg); font-weight: 600; border-bottom-color: #fd8c73; }
+  .gh-tabs b { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--gh-plate); font-size: 12px; font-weight: 500; color: var(--gh-muted); }
+  .gh-body { padding: 16px 22px 100px; background: var(--gh-canvas); height: 100%; }
+  .gh-file { border: 1px solid var(--gh-border); border-radius: 6px; overflow: hidden; background: var(--gh-bg); }
+  .gh-file__bar { display: flex; gap: 10px; padding: 9px 14px; background: var(--gh-plate); border-bottom: 1px solid var(--gh-border); font-family: var(--mono); font-size: 12.5px; }
+  .gh-file__bar .a { color: var(--gh-addfg); }
+  .gh-file__bar .d { color: var(--gh-delfg); }
+  .gh-diff { margin: 0; font-family: var(--mono); font-size: 12.5px; line-height: 2; }
+  .gh-diff div { padding: 0 14px; white-space: pre; }
+  .gh-diff .hunk { background: #ddf4ff; color: var(--gh-muted); }
+  .gh-diff .plus { background: var(--gh-add); color: var(--gh-addfg); }
+  .gh-diff .minus { background: var(--gh-del); color: var(--gh-delfg); }
+  .gh-diff .ctx { color: var(--gh-muted); }
+
+  /* Composer, for the Comment shot */
+  .composer { margin-top: 14px; border: 1px solid var(--gh-border); border-radius: 6px; background: var(--gh-bg); }
+  .composer__tabs { display: flex; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--gh-border); }
+  .composer__tabs i { font-style: normal; padding: 7px 14px; font-size: 13px; color: var(--gh-muted); }
+  .composer__tabs i.on { border: 1px solid var(--gh-border); border-bottom-color: var(--gh-bg); border-radius: 6px 6px 0 0; color: var(--gh-fg); background: var(--gh-bg); margin-bottom: -1px; }
+  .composer__field { margin: 12px; padding: 10px 12px; height: 92px; border: 1px solid #818b98; border-radius: 6px; color: var(--gh-muted); font-size: 13.5px; box-shadow: 0 0 0 3px rgba(9,105,218,.3); }
+
+  .callout {
+    position: absolute; z-index: 30;
+    padding: 7px 13px; border-radius: 7px;
+    background: #14161b; color: #fff;
+    font-size: 13.5px; font-weight: 600; font-family: var(--ui);
+    box-shadow: 0 8px 22px -8px rgba(0,0,0,.5);
+  }
+  .callout::after {
+    content: ""; position: absolute; left: 50%; bottom: -5px;
+    width: 10px; height: 10px; background: #14161b;
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  /* ---------- Keyboard shot ---------- */
+  .keys { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 8px; }
+  .keyrow {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 24px; border-radius: 12px;
+    background: #fff; border: 1px solid #dfe3ea;
+  }
+  .keycap {
+    flex: none; min-width: 74px; padding: 10px 0;
+    border-radius: 8px; background: var(--ink);
+    color: var(--cyan); text-align: center;
+    font: 700 20px/1 var(--mono);
+  }
+  .keyrow b { display: block; font-size: 17px; color: #14161b; }
+  .keyrow em { font-style: normal; font-size: 14px; color: #656b78; }
+
+  /* ---------- Privacy shot ---------- */
+  .privacy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .card { padding: 26px 28px; border-radius: 14px; background: #fff; border: 1px solid #dfe3ea; }
+  .card .no { font: 700 15px/1 var(--mono); color: #1a7f37; letter-spacing: .04em; }
+  .card h3 { margin: 12px 0 6px; font-size: 20px; letter-spacing: -.015em; color: #14161b; }
+  .card p { margin: 0; font-size: 15px; line-height: 1.5; color: #565c68; }
+
+  /* ---------- Promo tiles ---------- */
+  #small { width: 440px; height: 280px; }
+  #marquee { width: 1400px; height: 560px; }
+  .promo {
+    width: 100%; height: 100%;
+    display: grid; place-items: center; align-content: center; gap: 18px;
+    background: radial-gradient(120% 120% at 50% 0%, #1c2431, #0b0e14 68%);
+    text-align: center;
+    padding: 0 32px;
+  }
+  .promo h2 { margin: 0; color: #fff; letter-spacing: -.03em; line-height: 1.05; }
+  .promo p { margin: 0; color: #8f9aab; }
+  #small .promo h2 { font-size: 34px; }
+  #small .promo p { font-size: 15px; }
+  #marquee .promo h2 { font-size: 62px; }
+  #marquee .promo p { font-size: 22px; }
+  .promo .bar-wrap { transform-origin: center; }
+  #small .promo .bar-wrap { transform: scale(.58); }
+</style>
+
+<!-- ============ ICON ============ -->
+<div class="frame" id="icon">
+  <div class="icon-art">
+    <div class="icon-glyph"><span class="chev">&rsaquo;</span><span class="caret"></span></div>
+  </div>
+</div>
+
+<div id="stage"></div>
+
+<script>
+  // One markup source for the bar, so every asset shows the real component.
+  function bar(opts) {
+    opts = opts || {};
+    var tabs = [
+      { s: 'conversation', k: '⌥C', full: 'Conversation', short: 'Chat' },
+      { s: 'commits', k: '', full: 'Commits', short: 'Commits' },
+      { s: 'checks', k: '', full: 'Checks', short: 'Checks' },
+      { s: 'changes', k: '⌥F', full: 'Files changed', short: 'Files' }
+    ].map(function (t) {
+      var on = t.s === (opts.active || 'conversation') ? ' is-active' : '';
+      return '<a class="gh-quickview__tab' + on + '" data-gqv-section="' + t.s + '" href="#">' +
+        (t.k ? '<kbd class="gh-quickview__shortcut">' + t.k + '</kbd>' : '') +
+        '<span class="gh-quickview__label-full">' + t.full + '</span>' +
+        '<span class="gh-quickview__label-short">' + t.short + '</span></a>';
+    }).join('');
+
+    var action = opts.action === 'review'
+      ? '<button type="button" class="gh-quickview__action"><span>Review</span></button>'
+      : '<button type="button" class="gh-quickview__action"><kbd class="gh-quickview__shortcut">⌥M</kbd><span>Comment</span></button>';
+
+    var filled = Math.round((opts.progress === undefined ? 60 : opts.progress) / 10);
+    return '<aside id="github-quickview" class="gh-quickview" style="' + (opts.style || '') + '">' +
+      '<span class="gh-quickview__prompt">›</span>' +
+      '<nav class="gh-quickview__tabs">' + tabs + '</nav>' +
+      '<span class="gh-quickview__divider"></span>' +
+      '<div class="gh-quickview__controls">' + action +
+        '<button type="button" class="gh-quickview__top"><kbd class="gh-quickview__shortcut">⌥T</kbd><span>Top</span></button>' +
+        '<output class="gh-quickview__progress">' +
+          '<span class="gh-quickview__meter-on">' + '█'.repeat(filled) + '</span>' +
+          '<span class="gh-quickview__meter-off">' + '░'.repeat(10 - filled) + '</span>' +
+        '</output>' +
+      '</div></aside>';
+  }
+
+  function ghPage(opts) {
+    opts = opts || {};
+    var t = [['Conversation', 3, 'conversation'], ['Commits', 1, 'commits'], ['Checks', 2, 'checks'], ['Files changed', 8, 'changes']]
+      .map(function (x) {
+        return '<span class="' + (x[2] === (opts.tab || 'changes') ? 'on' : '') + '">' + x[0] + ' <b>' + x[1] + '</b></span>';
+      }).join('');
+    return '<div class="gh">' +
+      '<div class="gh-head">' +
+        '<h2 class="gh-title">Add license, CI, and automated release pipeline <span>#12</span></h2>' +
+        '<div class="gh-sub"><span class="gh-open">Open</span><span><b>yingzhox</b> wants to merge 1 commit into <code>main</code></span></div>' +
+        '<div class="gh-tabs">' + t + '</div>' +
+      '</div>' +
+      '<div class="gh-body">' + (opts.body || '') + '</div>' +
+    '</div>';
+  }
+
+  var DIFF =
+    '<div class="gh-file">' +
+      '<div class="gh-file__bar"><span>src/content.css</span><span class="a">+247</span><span class="d">− 18</span></div>' +
+      '<pre class="gh-diff">' +
+        '<div class="hunk">@@ -18,9 +18,11 @@ #github-quickview.gh-quickview {</div>' +
+        '<div class="ctx">   isolation: isolate;</div>' +
+        '<div class="minus">-  border-radius: 1rem;</div>' +
+        '<div class="minus">-  font: 13px/20px -apple-system, BlinkMacSystemFont;</div>' +
+        '<div class="plus">+  border-radius: 8px;</div>' +
+        '<div class="plus">+  font: 12px/18px ui-monospace, SFMono-Regular, monospace;</div>' +
+        '<div class="plus">+  background: var(--gqv-bg);</div>' +
+        '<div class="ctx">   z-index: 90;</div>' +
+        '<div class="ctx">   display: flex;</div>' +
+        '<div class="ctx">   align-items: center;</div>' +
+        '<div class="minus">-  gap: 0.375rem;</div>' +
+        '<div class="plus">+  gap: 2px;</div>' +
+        '<div class="plus">+  border: 1px solid var(--gqv-line);</div>' +
+        '<div class="ctx">   overflow: hidden;</div>' +
+      '</pre>' +
+    '</div>';
+
+  var TIMELINE =
+    '<div style="border:1px solid var(--gh-border);border-radius:6px;background:var(--gh-bg);overflow:hidden">' +
+      '<div style="padding:9px 14px;background:var(--gh-plate);border-bottom:1px solid var(--gh-border);font-size:13px;color:var(--gh-muted)">' +
+        '<b style="color:var(--gh-fg)">yingzhox</b> commented 2 hours ago</div>' +
+      '<div style="padding:14px;font-size:14px;line-height:1.6">' +
+        'Bumped the version in both <code>package.json</code> and <code>manifest.json</code> — the build refuses to run when they disagree, so tagging this should be safe.</div>' +
+    '</div>';
+
+  var COMPOSER =
+    '<div class="composer">' +
+      '<div class="composer__tabs"><i class="on">Write</i><i>Preview</i></div>' +
+      '<div class="composer__field">Leave a comment</div>' +
+    '</div>';
+
+  var BAR_POS = 'left:50%;bottom:22px;transform:translateX(-50%);';
+
+  var FRAMES = {
+    s1: '<div class="shot"><h1>Every section, one keystroke away</h1>' +
+        '<p class="sub">A command bar pinned to the bottom of every pull request. Conversation, Commits, Checks and Files changed stay reachable no matter how far you have scrolled.</p>' +
+        '<div class="body"><div class="browser">' + ghPage({ tab: 'changes', body: DIFF }) + bar({ active: 'changes', action: 'review', progress: 60, style: BAR_POS }) + '</div></div></div>',
+
+    s2: '<div class="shot"><h1>Jump straight to the composer</h1>' +
+        '<p class="sub">On a conversation, Comment focuses GitHub’s own reply box. The extension never posts, approves or merges — it only takes you there.</p>' +
+        '<div class="body"><div class="browser">' + ghPage({ tab: 'conversation', body: TIMELINE + COMPOSER }) +
+        '<div class="callout" style="left:800px;bottom:80px;transform:translateX(-50%)">⌥M focuses the reply box</div>' +
+        bar({ active: 'conversation', action: 'comment', progress: 80, style: BAR_POS }) + '</div></div></div>',
+
+    s3: '<div class="shot"><h1>Built for the keyboard</h1>' +
+        '<p class="sub">Shortcuts work everywhere except inside a text field, so they never fire while you are writing a review.</p>' +
+        '<div class="body"><div class="keys">' +
+          '<div class="keyrow"><span class="keycap">⌥C</span><span><b>Conversation</b><em>Jump to the discussion</em></span></div>' +
+          '<div class="keyrow"><span class="keycap">⌥F</span><span><b>Files changed</b><em>Jump to the diff</em></span></div>' +
+          '<div class="keyrow"><span class="keycap">⌥M</span><span><b>Comment</b><em>Focus the reply box</em></span></div>' +
+          '<div class="keyrow"><span class="keycap">⌥T</span><span><b>Back to top</b><em>Return to the header</em></span></div>' +
+        '</div>' +
+        '<div style="margin-top:26px;display:grid;place-items:center">' + bar({ active: 'conversation', progress: 40, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div>' +
+        '<p style="margin:22px 0 0;text-align:center;font-size:14.5px;color:#656b78">On Windows and Linux the same actions are Alt+C, Alt+F, Alt+M and Alt+T.</p>' +
+        '</div></div>',
+
+    s4: '<div class="shot"><h1>Nothing to trust it with</h1>' +
+        '<p class="sub">Quickview is a single content script that runs only on pull request pages. There is no account, no setup and nothing to opt out of.</p>' +
+        '<div class="body"><div class="privacy">' +
+          '<div class="card"><span class="no">NO PERMISSIONS</span><h3>Requests nothing</h3><p>The manifest declares no permissions and no host permissions beyond the pull request pages it runs on.</p></div>' +
+          '<div class="card"><span class="no">NO NETWORK</span><h3>Sends nothing</h3><p>No analytics, no telemetry, no remote code. The extension makes no network requests of any kind.</p></div>' +
+          '<div class="card"><span class="no">NO STORAGE</span><h3>Keeps nothing</h3><p>No storage, no cookies, no identifiers. Close the tab and nothing of yours remains.</p></div>' +
+          '<div class="card"><span class="no">OPEN SOURCE</span><h3>Read it yourself</h3><p>MIT licensed, dependency free, under 900 lines of JavaScript and CSS. Read the whole thing in one sitting.</p></div>' +
+        '</div>' +
+        '<div style="margin-top:30px;display:grid;place-items:center">' + bar({ active: 'conversation', progress: 100, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div>' +
+        '</div></div>',
+
+    small: '<div class="promo"><div class="bar-wrap">' + bar({ active: 'conversation', progress: 60, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div>' +
+      '<h2>GitHub Quickview</h2><p>Long pull requests, one keystroke away</p></div>',
+
+    marquee: '<div class="promo"><h2>Long pull requests, one keystroke away</h2>' +
+      '<p>A keyboard-first command bar for GitHub pull requests. No permissions, no network, no data.</p>' +
+      '<div class="bar-wrap" style="margin-top:14px">' + bar({ active: 'conversation', progress: 60, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div></div>'
+  };
+
+  var which = new URLSearchParams(location.search).get('frame') || 'icon';
+  if (which === 'icon') {
+    document.getElementById('icon').classList.add('on');
+  } else {
+    var host = document.getElementById('stage');
+    host.className = 'frame on';
+    host.id = which;
+    host.innerHTML = FRAMES[which] || '';
+  }
+</script>
