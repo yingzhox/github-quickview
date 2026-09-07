@@ -73,7 +73,7 @@ The fixture is available at `http://127.0.0.1:4173/octo/repo/pull/123/changes`. 
 
 ## Scope
 
-Version 0.3 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
+Version 0.4 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
 
 ## Releasing
 
@@ -86,7 +86,7 @@ Releases are built and published by GitHub Actions when a `v*` tag is pushed.
 3. Commit, then tag and push:
 
 ```sh
-git tag v0.4.0
+git tag v0.5.0
 git push origin main --follow-tags
 ```
 

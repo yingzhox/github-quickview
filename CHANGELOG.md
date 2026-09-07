@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-07
+
 ### Fixed
 
 - The dock now re-renders when GitHub routes between pull request sections. Its view is
@@ -53,5 +55,6 @@ First public release. Earlier versions were developed privately and never publis
   no storage, no network calls, and no remote code.
 - The extension never posts, approves, merges, or transmits data.
 
-[Unreleased]: https://github.com/yingzhox/github-quickview/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/yingzhox/github-quickview/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/yingzhox/github-quickview/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yingzhox/github-quickview/releases/tag/v0.3.0
