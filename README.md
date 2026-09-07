@@ -4,6 +4,8 @@
 [![Release](https://img.shields.io/github/v/release/yingzhox/github-quickview?sort=semver)](https://github.com/yingzhox/github-quickview/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![The GitHub Quickview command bar: a prompt glyph, then Conversation, Commits, Checks and Files changed, then Comment, Top and a reading-position meter — each control led by its shortcut key](docs/command-bar.png)
+
 A small, dependency-free Chrome extension for pull requests that have grown too long to navigate comfortably—especially PRs with repeated agent review rounds.
 
 An always-visible command bar sits at the bottom of every supported pull request. It is keyboard-first by design: each control leads with its shortcut key and follows it with a lowercase label. The bar keeps Conversation, Commits, Checks, and Files changed one click away and adds the action that matters on the current page:
