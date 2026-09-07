@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Example pull request · GitHub</title>
+    <link rel="stylesheet" href="/src/content.css">
+    <style>
+      :root {
+        color-scheme: light;
+        --bgColor-default: #ffffff;
+        --bgColor-muted: #f6f8fa;
+        --fgColor-default: #1f2328;
+        --fgColor-muted: #656d76;
+        --borderColor-default: #d0d7de;
+        --borderColor-muted: #d8dee4;
+        --button-default-bgColor-rest: #f6f8fa;
+        --button-default-bgColor-hover: #f3f4f6;
+        --button-default-borderColor-rest: #d0d7de;
+        --button-primary-bgColor-rest: #1f883d;
+        --button-primary-bgColor-hover: #1a7f37;
+        --button-primary-fgColor-rest: #ffffff;
+        --focus-outlineColor: #0969da;
+        --fgColor-accent: #0969da;
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bgColor-default: #0d1117;
+        --bgColor-muted: #161b22;
+        --fgColor-default: #f0f6fc;
+        --fgColor-muted: #8d96a0;
+        --borderColor-default: #30363d;
+        --borderColor-muted: #21262d;
+        --button-default-bgColor-rest: #21262d;
+        --button-default-bgColor-hover: #30363d;
+        --button-default-borderColor-rest: #30363d;
+        --button-primary-bgColor-rest: #238636;
+        --button-primary-bgColor-hover: #2ea043;
+        --button-primary-fgColor-rest: #ffffff;
+        --focus-outlineColor: #58a6ff;
+        --fgColor-accent: #58a6ff;
+      }
+
+      * { box-sizing: border-box; }
+      html { background: var(--bgColor-default); color: var(--fgColor-default); }
+      body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      a { color: var(--fgColor-accent); }
+      .site-header { height: 64px; padding: 16px 28px; color: #fff; background: #24292f; font-weight: 600; }
+      main { max-width: 1180px; margin: 0 auto; padding: 28px 24px 160px; }
+      .eyebrow { color: var(--fgColor-muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+      h1 { margin: 4px 0 20px; font-size: 30px; font-weight: 500; }
+      .pr-meta { margin-bottom: 24px; color: var(--fgColor-muted); }
+      nav[aria-label="Pull request navigation"] { display: flex; gap: 4px; border-bottom: 1px solid var(--borderColor-default); }
+      nav[aria-label="Pull request navigation"] a { padding: 10px 14px; color: var(--fgColor-default); text-decoration: none; }
+      nav[aria-label="Pull request navigation"] a[aria-current="page"] { border-bottom: 2px solid #fd8c73; font-weight: 600; }
+      .toolbar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding: 10px 12px; border: 1px solid var(--borderColor-default); border-radius: 6px; background: var(--bgColor-default); }
+      button { border: 1px solid var(--button-default-borderColor-rest); border-radius: 6px; padding: 6px 12px; color: var(--fgColor-default); background: var(--button-default-bgColor-rest); font: inherit; font-weight: 600; }
+      .review-button { color: var(--button-primary-fgColor-rest); background: var(--button-primary-bgColor-rest); border-color: transparent; }
+      .review-short { display: none; }
+      .file { margin-top: 20px; min-height: 380px; border: 1px solid var(--borderColor-default); border-radius: 6px; overflow: hidden; }
+      .file h3 { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--borderColor-default); background: var(--bgColor-muted); font: 600 13px/20px ui-monospace, monospace; }
+      .lines { padding: 14px; color: var(--fgColor-muted); font-family: ui-monospace, monospace; white-space: pre-line; }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+      #review-result { margin-left: 12px; color: var(--fgColor-muted); }
+      #conversation-fixture { display: none; margin-top: 40px; }
+      .fixture-controls { display: none; }
+      :root[data-test-controls="true"] .fixture-controls {
+        position: fixed;
+        z-index: 5;
+        top: 72px;
+        left: 8px;
+        display: flex;
+        gap: 4px;
+      }
+      textarea { width: 100%; min-height: 140px; padding: 12px; border: 1px solid var(--borderColor-default); border-radius: 6px; color: var(--fgColor-default); background: var(--bgColor-default); font: inherit; }
+    </style>
+  </head>
+  <body>
+    <div class="fixture-controls" aria-label="Fixture controls">
+      <button id="simulate-exit" type="button">Simulate leaving the pull request</button>
+      <button id="simulate-return" type="button">Simulate returning to the pull request</button>
+      <button id="simulate-nav-replace" type="button">Replace pull request navigation</button>
+      <button id="simulate-duplicate" type="button">Add a duplicate dock</button>
+    </div>
+    <header class="site-header">GitHub&nbsp;&nbsp; / &nbsp;octo / repo</header>
+    <main>
+      <div class="eyebrow">Pull request #123</div>
+      <h1>Keep agent review loops easy to navigate</h1>
+      <div class="pr-meta">Open · octocat wants to merge 12 commits into main</div>
+      <nav aria-label="Pull request navigation">
+        <a href="/octo/repo/pull/123">Conversation <span>48</span></a>
+        <a href="/octo/repo/pull/123/commits">Commits <span>12</span></a>
+        <a href="/octo/repo/pull/123/checks">Checks <span>6</span></a>
+        <a href="/octo/repo/pull/123/changes" aria-current="page">Files changed <span>34</span></a>
+      </nav>
+
+      <section class="toolbar">
+        <h2 class="sr-only">Pull request toolbar</h2>
+        <strong>0 / 34 files viewed</strong>
+        <div>
+          <button id="native-review" class="review-button" type="button">
+            <span class="review-full">Submit review</span><span class="review-short">Review</span>
+          </button>
+          <span id="review-result" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section id="files" aria-label="Changed files"></section>
+      <section id="conversation-fixture">
+        <label for="new_comment_field">Leave a comment</label>
+        <textarea id="new_comment_field" name="comment[body]"></textarea>
+      </section>
+    </main>
+
+    <script src="/src/core.js"></script>
+    <script src="/src/content.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search);
+      if (params.get("theme") === "dark") document.documentElement.dataset.theme = "dark";
+      if (params.get("testcontrols") === "1") document.documentElement.dataset.testControls = "true";
+      addEventListener("keydown", (event) => {
+        document.documentElement.dataset.lastKey = `${event.code}:${event.altKey}:${event.shiftKey}:${event.ctrlKey}:${event.metaKey}`;
+      });
+      const fixtureBase = "/octo/repo/pull/123";
+      const fixturePath = location.pathname.replace(/\/+$/, "");
+      const conversationView = params.get("view") === "conversation" || fixturePath === fixtureBase;
+
+      const files = document.querySelector("#files");
+      for (let index = 1; index <= 18; index += 1) {
+        const file = document.createElement("article");
+        file.className = "file";
+        file.innerHTML = `<h3>src/agent/review-round-${index}.js</h3><div class="lines">+ keep context nearby\n+ preserve native GitHub actions\n- repeated manual scrolling</div>`;
+        files.append(file);
+      }
+
+      const reviewButton = document.querySelector("#native-review");
+      reviewButton.dataset.clicks = "0";
+      reviewButton.addEventListener("click", () => {
+        reviewButton.dataset.clicks = String(Number(reviewButton.dataset.clicks) + 1);
+        document.querySelector("#review-result").textContent = "Native review dialog opened";
+      });
+
+      document.querySelectorAll('nav[aria-label="Pull request navigation"] a').forEach((link) => {
+        if (new URL(link.href).pathname === fixturePath) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+      if (conversationView) {
+        document.querySelector(".toolbar").hidden = true;
+        document.querySelector("#conversation-fixture").style.display = "block";
+      }
+
+      const pullRequestLocation = new URL(`https://github.com${fixturePath}`);
+      let virtualLocation = new URL(pullRequestLocation);
+      document.documentElement.dataset.virtualPath = virtualLocation.pathname;
+      globalThis.__fixtureController = globalThis.GitHubQuickviewContent?.createController({
+        document,
+        window,
+        getLocation: () => virtualLocation,
+      });
+      globalThis.__fixtureController?.start();
+
+      document.querySelector("#simulate-exit").addEventListener("click", () => {
+        virtualLocation = new URL("https://github.com/octo/repo/issues/123");
+        document.documentElement.dataset.virtualPath = virtualLocation.pathname;
+        dispatchEvent(new Event("turbo:load"));
+      });
+      document.querySelector("#simulate-return").addEventListener("click", () => {
+        virtualLocation = new URL(pullRequestLocation);
+        document.documentElement.dataset.virtualPath = virtualLocation.pathname;
+        dispatchEvent(new Event("turbo:load"));
+      });
+      document.querySelector("#simulate-nav-replace").addEventListener("click", () => {
+        const nav = document.querySelector('nav[aria-label="Pull request navigation"]');
+        nav.replaceWith(nav.cloneNode(true));
+      });
+      document.querySelector("#simulate-duplicate").addEventListener("click", () => {
+        const duplicate = document.createElement("aside");
+        duplicate.id = "github-quickview";
+        document.body.append(duplicate);
+        dispatchEvent(new Event("turbo:render"));
+      });
+    </script>
+  </body>
+</html>

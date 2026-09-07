@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Quickview",
+  "version": "0.3.0",
+  "description": "GitHub Quickview keeps pull request navigation and end-of-flow actions within reach.",
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*/pull/*"],
+      "js": ["src/core.js", "src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
