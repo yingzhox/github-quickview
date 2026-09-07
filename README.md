@@ -6,12 +6,13 @@
 
 A small, dependency-free Chrome extension for pull requests that have grown too long to navigate comfortably—especially PRs with repeated agent review rounds.
 
-An always-visible compact dock sits at the bottom of every supported pull request. It keeps Conversation, Commits, Checks, and Files changed one click away and adds the action that matters on the current page:
+An always-visible command bar sits at the bottom of every supported pull request. It is keyboard-first by design: each control leads with its shortcut key and follows it with a lowercase label. The bar keeps Conversation, Commits, Checks, and Files changed one click away and adds the action that matters on the current page:
 
 - **Conversation** goes directly to the comment composer when clicked; an ordinary page load keeps its original scroll position.
 - **Comment** jumps to and focuses GitHub's native comment composer.
 - **Review** opens GitHub's native Submit review control.
 - **Back to top** returns to the PR header.
+- Reading position is drawn as a ten-cell meter rather than written as a percentage. The percentage is still announced to assistive technology.
 
 The extension never posts, approves, merges, or sends data itself.
 
@@ -25,6 +26,10 @@ Shortcuts work outside text fields, so they never interfere while you are writin
 | Files changed | `⌥F` | `Alt+F` |
 | Comment | `⌥M` | `Alt+M` |
 | Back to top | `⌥T` | `Alt+T` |
+
+## Density
+
+The bar sheds detail as the window narrows rather than scrolling sideways: full labels above 860 px, short labels below it, and keys alone below 480 px, where the shortcut caps are the whole control.
 
 ## Install
 
@@ -44,7 +49,11 @@ and unzip it, or clone this repository. Then:
 - No requested runtime permissions, storage, analytics, network calls, or remote code.
 - Runs only on `https://github.com/*/*/pull/*`.
 - Uses GitHub's native navigation links and controls rather than recreating review actions.
-- Uses GitHub Primer color variables, so it follows light and dark themes.
+- Keeps a single terminal palette in both GitHub themes. A command bar that repaints
+  itself to match the page stops reading as a command bar, so the slab stays constant
+  and only its shadow adapts.
+- Sets type in a system monospace stack. The extension makes no network requests, so a
+  web font is not available to it.
 - Avoids GitHub's generated CSS-module class names and fails safely if expected semantic markup is unavailable.
 
 ## Development

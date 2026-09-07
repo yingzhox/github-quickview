@@ -85,12 +85,25 @@
       return isApplePlatform() ? '⌥' + key : 'Alt+' + key;
     }
 
-    function appendShortcut(control, key) {
+    // Added before the label rather than after it: the command bar leads
+    // with the shortcut and lets the word explain it.
+    function addShortcut(control, key) {
       var hint = documentNode.createElement('kbd');
       hint.className = 'gh-quickview__shortcut';
       hint.setAttribute('aria-hidden', 'true');
       hint.textContent = shortcutLabel(key);
       control.appendChild(hint);
+    }
+
+    function renderMeter(indicator, progress) {
+      var on = indicator.querySelector('[data-gqv-meter-on]');
+      var off = indicator.querySelector('[data-gqv-meter-off]');
+      if (!on || !off) {
+        return;
+      }
+      var filled = Math.round(progress / 10);
+      on.textContent = new Array(filled + 1).join('\u2588');
+      off.textContent = new Array(10 - filled + 1).join('\u2591');
     }
 
     function isTextEntry(element) {
@@ -150,7 +163,7 @@
       var progress = core.calculateScrollProgress(windowNode.scrollY, documentNode.documentElement.scrollHeight, windowNode.innerHeight);
       var indicator = root.querySelector('[data-gqv-progress]');
       if (indicator) {
-        indicator.textContent = progress + '%';
+        renderMeter(indicator, progress);
         indicator.setAttribute('aria-label', 'Page position ' + progress + '%');
       }
       root.style.setProperty('--gqv-progress', progress + '%');
@@ -176,6 +189,12 @@
       var dock = ensureRoot();
       dock.replaceChildren();
 
+      var prompt = documentNode.createElement('span');
+      prompt.className = 'gh-quickview__prompt';
+      prompt.setAttribute('aria-hidden', 'true');
+      prompt.textContent = '\u203a';
+      dock.appendChild(prompt);
+
       var tabsNav = documentNode.createElement('nav');
       tabsNav.className = 'gh-quickview__tabs';
       tabsNav.setAttribute('aria-label', 'Pull request sections');
@@ -192,6 +211,9 @@
         }
         link.setAttribute('href', href);
         link.setAttribute('aria-label', tab.label + (shortcutKey ? ', shortcut ' + shortcutLabel(shortcutKey) : ''));
+        if (shortcutKey) {
+          addShortcut(link, shortcutKey);
+        }
         var fullLabel = documentNode.createElement('span');
         fullLabel.className = 'gh-quickview__label-full';
         fullLabel.setAttribute('aria-hidden', 'true');
@@ -203,9 +225,6 @@
         shortLabel.textContent = tab.section === 'conversation' ? 'Chat' :
           tab.section === 'changes' ? 'Files' : tab.label;
         link.appendChild(shortLabel);
-        if (shortcutKey) {
-          appendShortcut(link, shortcutKey);
-        }
         if (tab.active) {
           link.setAttribute('aria-current', 'page');
         }
@@ -223,6 +242,11 @@
       });
       dock.appendChild(tabsNav);
 
+      var divider = documentNode.createElement('span');
+      divider.className = 'gh-quickview__divider';
+      divider.setAttribute('aria-hidden', 'true');
+      dock.appendChild(divider);
+
       var controls = documentNode.createElement('div');
       controls.className = 'gh-quickview__controls';
       var commentTarget = location.section === 'conversation' && core.findCommentTarget(documentNode, dock);
@@ -231,12 +255,15 @@
         var action = documentNode.createElement('button');
         action.type = 'button';
         action.className = 'gh-quickview__action';
-        action.textContent = commentTarget ? 'Comment' : 'Review';
         action.setAttribute(commentTarget ? 'data-gqv-comment' : 'data-gqv-review', '');
         action.setAttribute('aria-label', commentTarget ? 'Jump to comment composer' : 'Open GitHub submit review');
         if (commentTarget) {
-          appendShortcut(action, 'M');
+          addShortcut(action, 'M');
         }
+        var actionLabel = documentNode.createElement('span');
+        actionLabel.setAttribute('aria-hidden', 'true');
+        actionLabel.textContent = commentTarget ? 'Comment' : 'Review';
+        action.appendChild(actionLabel);
         controls.appendChild(action);
       }
 
@@ -245,17 +272,27 @@
       topButton.className = 'gh-quickview__top';
       topButton.setAttribute('data-gqv-top', '');
       topButton.setAttribute('aria-label', 'Back to top');
+      addShortcut(topButton, 'T');
       var topLabel = documentNode.createElement('span');
-      topLabel.textContent = '↑ Top';
+      topLabel.setAttribute('aria-hidden', 'true');
+      topLabel.textContent = 'Top';
       topButton.appendChild(topLabel);
-      appendShortcut(topButton, 'T');
       controls.appendChild(topButton);
 
       var progressOutput = documentNode.createElement('output');
       progressOutput.className = 'gh-quickview__progress';
       progressOutput.setAttribute('data-gqv-progress', '');
       progressOutput.setAttribute('aria-label', 'Page position 0%');
-      progressOutput.textContent = '0%';
+      var meterOn = documentNode.createElement('span');
+      meterOn.className = 'gh-quickview__meter-on';
+      meterOn.setAttribute('data-gqv-meter-on', '');
+      meterOn.setAttribute('aria-hidden', 'true');
+      progressOutput.appendChild(meterOn);
+      var meterOff = documentNode.createElement('span');
+      meterOff.className = 'gh-quickview__meter-off';
+      meterOff.setAttribute('data-gqv-meter-off', '');
+      meterOff.setAttribute('aria-hidden', 'true');
+      progressOutput.appendChild(meterOff);
       controls.appendChild(progressOutput);
       dock.appendChild(controls);
 

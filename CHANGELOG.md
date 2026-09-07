@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Redesigned the dock as a keyboard-first command bar: monospace type, the shortcut key set
+  first and bright, and the label trailing in lowercase.
+- The bar now keeps one terminal palette in both GitHub themes instead of following Primer
+  color variables, so it reads as a command surface rather than as page chrome.
+- Reading position is drawn as a ten-cell meter instead of a percentage string. The
+  percentage is still reported through the progress control's accessible name.
+- Labels now degrade in three steps as the window narrows — full, short, then keys alone.
+
 ## [0.3.0] - 2026-09-07
 
 First public release. Earlier versions were developed privately and never published.

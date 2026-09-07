@@ -356,3 +356,48 @@ test("keyboard shortcuts activate Conversation, Files changed, Comment, and Top 
 
   controller.destroy();
 });
+
+test("controls lead with the shortcut key and follow it with the label", () => {
+  const fixture = buildFixture();
+  const location = new URL("https://github.com/octo/repo/pull/123/changes");
+  createFixtureController(fixture, () => location).start();
+
+  const root = fixture.document.querySelector("#github-quickview");
+  assert.equal(root.children[0].className, "gh-quickview__prompt");
+
+  const conversation = root.querySelector('[data-gqv-section="conversation"]');
+  assert.equal(conversation.children[0].tagName, "KBD");
+  assert.equal(conversation.children[0].textContent, "⌥C");
+  assert.equal(conversation.children[1].className, "gh-quickview__label-full");
+
+  const top = root.querySelector("[data-gqv-top]");
+  assert.equal(top.children[0].tagName, "KBD");
+  assert.equal(top.children[1].textContent, "Top");
+});
+
+test("scroll progress renders as a ten-cell meter and still reports a percentage", () => {
+  const fixture = buildFixture();
+  const location = new URL("https://github.com/octo/repo/pull/123/changes");
+  createFixtureController(fixture, () => location).start();
+
+  const root = fixture.document.querySelector("#github-quickview");
+  const progress = root.querySelector("[data-gqv-progress]");
+  const on = progress.querySelector("[data-gqv-meter-on]");
+  const off = progress.querySelector("[data-gqv-meter-off]");
+
+  // Empty at rest, but still ten cells wide so the bar does not resize.
+  assert.equal(on.textContent, "");
+  assert.equal(off.textContent, "░".repeat(10));
+  assert.equal(progress.getAttribute("aria-label"), "Page position 0%");
+
+  // 800 of a 1000px scrollable range.
+  fixture.window.scrollY = 800;
+  fixture.window.dispatch("scroll");
+  fixture.window.flushFrames();
+
+  assert.equal(on.textContent, "█".repeat(8));
+  assert.equal(off.textContent, "░".repeat(2));
+  assert.equal(on.textContent.length + off.textContent.length, 10);
+  assert.equal(progress.getAttribute("aria-label"), "Page position 80%");
+  assert.equal(root.style["--gqv-progress"], "80%");
+});
