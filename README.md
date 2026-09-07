@@ -1,5 +1,9 @@
 # GitHub Quickview
 
+[![CI](https://github.com/yingzhox/github-quickview/actions/workflows/ci.yml/badge.svg)](https://github.com/yingzhox/github-quickview/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/yingzhox/github-quickview?sort=semver)](https://github.com/yingzhox/github-quickview/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A small, dependency-free Chrome extension for pull requests that have grown too long to navigate comfortably—especially PRs with repeated agent review rounds.
 
 An always-visible compact dock sits at the bottom of every supported pull request. It keeps Conversation, Commits, Checks, and Files changed one click away and adds the action that matters on the current page:
@@ -22,7 +26,11 @@ Shortcuts work outside text fields, so they never interfere while you are writin
 | Comment | `⌥M` | `Alt+M` |
 | Back to top | `⌥T` | `Alt+T` |
 
-## Install locally
+## Install
+
+Download `github-quickview-<version>.zip` from the
+[latest release](https://github.com/yingzhox/github-quickview/releases/latest)
+and unzip it, or clone this repository. Then:
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
@@ -44,8 +52,9 @@ Shortcuts work outside text fields, so they never interfere while you are writin
 No install step is required.
 
 ```sh
-npm test
-npm run check
+npm test       # unit and controller tests
+npm run check  # syntax and manifest validation
+npm run build  # produce dist/github-quickview-<version>.zip
 npm run fixture
 ```
 
@@ -54,3 +63,33 @@ The fixture is available at `http://127.0.0.1:4173/octo/repo/pull/123/changes`. 
 ## Scope
 
 Version 0.3 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
+
+## Releasing
+
+Releases are built and published by GitHub Actions when a `v*` tag is pushed.
+
+1. Update `version` in both `package.json` and `manifest.json`. The build fails if they
+   disagree.
+2. Move the `Unreleased` notes in `CHANGELOG.md` under a new `## [x.y.z] - YYYY-MM-DD`
+   heading, and update the link definitions at the bottom of the file.
+3. Commit, then tag and push:
+
+```sh
+git tag v0.4.0
+git push origin main --follow-tags
+```
+
+The workflow verifies that the tag matches `package.json`, runs the checks and tests,
+builds the zip, and publishes a release whose description is taken from that version's
+`CHANGELOG.md` section.
+
+## Contributing
+
+Issues and pull requests are welcome. Please run `npm run check` and `npm test` before
+opening a pull request; CI runs both on Node 20 and 22.
+
+Security issues should be reported privately — see [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © Yingzhong Xu
