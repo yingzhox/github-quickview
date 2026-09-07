@@ -8,6 +8,8 @@
   }
 
   var ROOT_ID = 'github-quickview';
+  var AUTO_REFRESH_KEY = 'autoRefresh';
+  var AUTO_REFRESH_DELAY = 1500;
   var navSelector = 'nav[aria-label="Pull request navigation"]';
   var NAVIGATION_EVENTS = ['turbo:load', 'turbo:render', 'pjax:end', 'popstate'];
 
@@ -42,15 +44,165 @@
     var shortcuts = shortcutSettings.normalize();
     var shortcutsReady = !storage;
     var settingsRevision = 0;
+    var autoRefresh = false;
+    var autoRefreshReady = !storage;
+    var autoRefreshRevision = 0;
+    var autoRefreshSaving = false;
+    var autoRefreshError = false;
+    var autoRefreshTimer = null;
+    var autoRefreshPage = '';
+    var refreshHandled = false;
 
     function onSettingsChanged(changes, area) {
-      if (destroyed || area !== 'local' || !changes[shortcutSettings.STORAGE_KEY]) {
+      if (destroyed || area !== 'local') {
         return;
       }
-      settingsRevision += 1;
-      shortcuts = shortcutSettings.normalize(changes[shortcutSettings.STORAGE_KEY].newValue);
-      shortcutsReady = true;
-      scheduleRefresh();
+      if (changes[shortcutSettings.STORAGE_KEY]) {
+        settingsRevision += 1;
+        shortcuts = shortcutSettings.normalize(changes[shortcutSettings.STORAGE_KEY].newValue);
+        shortcutsReady = true;
+        scheduleRefresh();
+      }
+      if (changes[AUTO_REFRESH_KEY]) {
+        autoRefreshRevision += 1;
+        autoRefresh = changes[AUTO_REFRESH_KEY].newValue === true;
+        autoRefreshReady = true;
+        autoRefreshError = false;
+        updateAutoRefreshControl();
+        syncAutoRefresh();
+      }
+    }
+
+    async function loadAutoRefresh() {
+      var revision = autoRefreshRevision;
+      var saved;
+      try {
+        saved = await storage.local.get(AUTO_REFRESH_KEY);
+      } catch (error) {
+        saved = {};
+      }
+      if (!destroyed && revision === autoRefreshRevision) {
+        autoRefresh = saved[AUTO_REFRESH_KEY] === true;
+        autoRefreshReady = true;
+        updateAutoRefreshControl();
+        syncAutoRefresh();
+      }
+    }
+
+    function updateAutoRefreshControl() {
+      var control = root && root.querySelector('[data-gqv-auto-refresh]');
+      if (!control || destroyed) {
+        return;
+      }
+      control.disabled = !autoRefreshReady || autoRefreshSaving;
+      control.setAttribute('aria-pressed', String(autoRefresh));
+      control.setAttribute('aria-label', autoRefreshError ? 'Auto refresh could not be saved. Try again.' : 'Auto refresh');
+      control.setAttribute('title', autoRefreshError ? 'Could not save auto refresh. Click to try again.' :
+        'Refresh when GitHub reports new changes. Pauses while editing or a dialog is open. Saved on this device.');
+      control.querySelector('[data-gqv-auto-state]').textContent = autoRefreshError ? 'retry' : autoRefresh ? 'on' : 'off';
+    }
+
+    async function toggleAutoRefresh() {
+      if (!autoRefreshReady || autoRefreshSaving || destroyed) {
+        return;
+      }
+      var nextValue = !autoRefresh;
+      var revision = autoRefreshRevision;
+      autoRefreshSaving = true;
+      autoRefreshError = false;
+      updateAutoRefreshControl();
+      syncAutoRefresh();
+      try {
+        if (storage) {
+          var saved = {};
+          saved[AUTO_REFRESH_KEY] = nextValue;
+          await storage.local.set(saved);
+        }
+        if (!destroyed && revision === autoRefreshRevision) {
+          autoRefresh = nextValue;
+        }
+      } catch (error) {
+        autoRefreshError = true;
+      } finally {
+        autoRefreshSaving = false;
+        updateAutoRefreshControl();
+        syncAutoRefresh();
+      }
+    }
+
+    function refreshIsPaused() {
+      if (isTextEntry(documentNode.activeElement)) {
+        return true;
+      }
+      var dialogs = documentNode.querySelectorAll('[role="dialog"], dialog');
+      if (Array.prototype.some.call(dialogs, function (dialog) { return dialog.getClientRects().length > 0; })) {
+        return true;
+      }
+      var editors = documentNode.querySelectorAll('textarea, [contenteditable="true"], [contenteditable="plaintext-only"]');
+      return Array.prototype.some.call(editors, function (editor) {
+        // Preview tabs may hide a draft's textarea. Include it when its form
+        // remains visible, but ignore GitHub's dormant hidden edit forms.
+        var visible = editor.getClientRects().length > 0 || editor.form && editor.form.getClientRects().length > 0;
+        var value = editor.tagName === 'TEXTAREA' ? editor.value : editor.textContent;
+        return visible && String(value || '').trim().length > 0;
+      });
+    }
+
+    function stopAutoRefresh() {
+      if (autoRefreshTimer !== null) {
+        windowNode.clearTimeout(autoRefreshTimer);
+        autoRefreshTimer = null;
+      }
+    }
+
+    function syncAutoRefresh() {
+      var location = core.parsePullRequestLocation(getLocation());
+      var page = location ? location.url.pathname + location.url.search : '';
+      if (page !== autoRefreshPage || !autoRefresh) {
+        autoRefreshPage = page;
+        refreshHandled = false;
+      }
+      if (destroyed || !root || !autoRefreshReady || !autoRefresh || autoRefreshSaving || !location ||
+          (location.section !== 'changes' && location.section !== 'conversation')) {
+        stopAutoRefresh();
+        return;
+      }
+      if (autoRefreshTimer !== null) {
+        return;
+      }
+      // Read GitHub's update signal periodically; this makes no network
+      // requests and avoids observing every mutation in a large diff.
+      autoRefreshTimer = windowNode.setTimeout(function () {
+        autoRefreshTimer = null;
+        checkAutoRefresh();
+        syncAutoRefresh();
+      }, AUTO_REFRESH_DELAY);
+    }
+
+    function checkAutoRefresh() {
+      var location = core.parsePullRequestLocation(getLocation());
+      if (destroyed || !root || !autoRefresh || autoRefreshSaving || !location ||
+          (location.section !== 'changes' && location.section !== 'conversation')) {
+        return;
+      }
+      var page = location.url.pathname + location.url.search;
+      if (page !== autoRefreshPage) {
+        autoRefreshPage = page;
+        refreshHandled = false;
+      }
+      // Wait for the signal to clear before handling another update, even
+      // if React replaces the link or temporarily marks it as loading.
+      if (!documentNode.querySelector('[data-refresh-button-visible="true"]')) {
+        refreshHandled = false;
+      }
+      if (refreshHandled || refreshIsPaused()) {
+        return;
+      }
+      var target = core.findRefreshTarget(documentNode, root, location.url);
+      if (target) {
+        refreshHandled = true;
+        target.click();
+      }
     }
 
     async function loadShortcuts() {
@@ -318,6 +470,28 @@
       topButton.appendChild(topLabel);
       controls.appendChild(topButton);
 
+      if (location.section === 'changes' || location.section === 'conversation') {
+        var autoButton = documentNode.createElement('button');
+        autoButton.type = 'button';
+        autoButton.className = 'gh-quickview__auto-refresh';
+        autoButton.setAttribute('data-gqv-auto-refresh', '');
+        var autoLabel = documentNode.createElement('span');
+        autoLabel.setAttribute('aria-hidden', 'true');
+        autoLabel.textContent = 'Auto';
+        autoButton.appendChild(autoLabel);
+        var refreshLabel = documentNode.createElement('span');
+        refreshLabel.className = 'gh-quickview__label-full';
+        refreshLabel.setAttribute('aria-hidden', 'true');
+        refreshLabel.textContent = 'refresh';
+        autoButton.appendChild(refreshLabel);
+        var autoState = documentNode.createElement('span');
+        autoState.setAttribute('data-gqv-auto-state', '');
+        autoState.setAttribute('aria-hidden', 'true');
+        autoButton.appendChild(autoState);
+        autoButton.addEventListener('click', toggleAutoRefresh);
+        controls.appendChild(autoButton);
+      }
+
       var progressOutput = documentNode.createElement('output');
       progressOutput.className = 'gh-quickview__progress';
       progressOutput.setAttribute('data-gqv-progress', '');
@@ -334,6 +508,7 @@
       progressOutput.appendChild(meterOff);
       controls.appendChild(progressOutput);
       dock.appendChild(controls);
+      updateAutoRefreshControl();
 
       var comment = dock.querySelector('[data-gqv-comment]');
       var review = dock.querySelector('[data-gqv-review]');
@@ -409,12 +584,14 @@
         clearHydrationRetry();
         stopMutationObserver();
         removeRoot();
+        syncAutoRefresh();
         return;
       }
       var nav = documentNode.querySelector(navSelector);
       if (!nav) {
         stopMutationObserver();
         removeRoot();
+        syncAutoRefresh();
         scheduleHydrationRetry();
         return;
       }
@@ -422,6 +599,7 @@
       hydrationAttempts = 0;
       render(nav, location);
       observeNavMutations(nav);
+      syncAutoRefresh();
     }
 
     function scheduleRefresh() {
@@ -439,6 +617,7 @@
       if (storage) {
         storage.onChanged.addListener(onSettingsChanged);
         loadShortcuts();
+        loadAutoRefresh();
       }
       NAVIGATION_EVENTS.forEach(function (eventName) {
         windowNode.addEventListener(eventName, scheduleRefresh);
@@ -462,6 +641,7 @@
         storage.onChanged.removeListener(onSettingsChanged);
       }
       clearHydrationRetry();
+      stopAutoRefresh();
       if (reviewResetTimer !== null && windowNode.clearTimeout) {
         windowNode.clearTimeout(reviewResetTimer);
       }

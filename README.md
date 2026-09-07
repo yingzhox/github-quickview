@@ -15,6 +15,7 @@ An always-visible command bar sits at the bottom of every supported pull request
 - **Review** opens GitHub's native Submit review control.
 - **Back to top** returns to the PR header.
 - Reading position is drawn as a ten-cell meter rather than written as a percentage. The percentage is still announced to assistive technology.
+- **Auto refresh** can activate GitHub's native Refresh control when new changes are available.
 
 The extension never posts, approves, merges, or sends data itself.
 
@@ -42,6 +43,22 @@ Settings are saved locally on this device. Open PR tabs update their shortcuts a
 hints immediately. After updating the unpacked extension, reload it and refresh existing
 PR tabs once to load the new settings support.
 
+## Auto refresh
+
+Click **Auto refresh off** in the bar on Files changed or Conversation to enable it.
+The preference is off by default, saved on this device, and shared with open PR tabs.
+When GitHub marks its native Refresh control as ready, Quickview activates it once.
+It checks the page every 1.5 seconds without making network requests or periodically
+reloading the page. GitHub controls when updates become available.
+
+Refresh pauses while a text field has focus, a comment/review draft is present, or a
+dialog is open. Finish or clear the draft and leave the editor to resume. Click the
+toggle again to turn it off.
+
+Conversation already receives GitHub's live timeline updates. Quickview also handles
+an explicit native refresh signal there when one is present; it does not force reloads
+when GitHub provides no signal. Files changed supports both `/changes` and `/files`.
+
 ## Density
 
 The bar sheds detail as the window narrows: full labels above 860 px, short labels below
@@ -62,7 +79,7 @@ and unzip it, or clone this repository. Then:
 ## Design and privacy
 
 - Manifest V3 content scripts and an extension options page, with no background worker.
-- Requests only the `storage` permission to save shortcut preferences locally. No
+- Requests only the `storage` permission to save shortcut and auto-refresh preferences locally. No
   analytics, network calls, remote code, or stored page content.
 - Runs only on `https://github.com/*/*/pull/*`.
 - Uses GitHub's native navigation links and controls rather than recreating review actions.
@@ -88,7 +105,7 @@ The fixture is available at `http://127.0.0.1:4173/octo/repo/pull/123/changes`. 
 
 ## Scope
 
-Version 0.5 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
+Version 0.6 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
 
 ## Releasing
 

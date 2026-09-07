@@ -144,6 +144,15 @@
   color: var(--gqv-green);
 }
 
+#github-quickview .gh-quickview__auto-refresh { gap: 4px; }
+#github-quickview [data-gqv-auto-state] { color: var(--gqv-dim); }
+#github-quickview .gh-quickview__auto-refresh[aria-pressed="true"] {
+  background: var(--gqv-panel);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gqv-green) 38%, transparent);
+}
+#github-quickview [aria-pressed="true"] [data-gqv-auto-state] { color: var(--gqv-green); }
+#github-quickview button:disabled { cursor: wait; opacity: 0.6; }
+
 #github-quickview .gh-quickview__controls {
   flex: none;
   justify-content: flex-end;

@@ -125,12 +125,14 @@ function matchesSelector(element, selector) {
     if (value === "*") return true;
     if (value.startsWith("#")) return element.id === value.slice(1);
     if (value.startsWith(".")) return element.className.split(/\s+/).includes(value.slice(1));
-    const match = value.match(/^([a-z0-9]+)?\[([^=\]]+)(?:="([^"]*)")?\]$/i);
+    const match = value.match(/^([a-z0-9]+)?((?:\[[^\]]+\])+)$/i);
     if (match) {
-      const [, tag, attribute, expected] = match;
+      const [, tag, attributes] = match;
       if (tag && element.tagName !== tag.toUpperCase()) return false;
-      const actual = element.getAttribute(attribute);
-      return expected === undefined ? actual !== null : actual === expected;
+      return [...attributes.matchAll(/\[([^=\]]+)(?:="([^"]*)")?\]/g)].every(([, attribute, expected]) => {
+        const actual = element.getAttribute(attribute);
+        return expected === undefined ? actual !== null : actual === expected;
+      });
     }
     return element.tagName === value.toUpperCase();
   });
@@ -173,7 +175,8 @@ class FakeWindow {
       },
     };
     this.frames = [];
-    this.timers = [];
+    this.timers = new Map();
+    this.nextTimer = 0;
     this.intersectionObservers = [];
     this.mutationObservers = [];
     this.navigator = { platform: "MacIntel" };
@@ -203,9 +206,14 @@ class FakeWindow {
   dispatch(type, event = {}) { for (const listener of this.listeners.get(type) || []) listener(event); }
   requestAnimationFrame(callback) { this.frames.push(callback); return this.frames.length; }
   flushFrames() { while (this.frames.length) this.frames.splice(0).forEach((callback) => callback()); }
-  setTimeout(callback) { this.timers.push(callback); return this.timers.length; }
-  clearTimeout() {}
-  flushTimers() { while (this.timers.length) this.timers.splice(0).forEach((callback) => callback()); }
+  setTimeout(callback) { const id = ++this.nextTimer; this.timers.set(id, callback); return id; }
+  clearTimeout(id) { this.timers.delete(id); }
+  flushTimers() {
+    const pending = [...this.timers];
+    for (const [id, callback] of pending) {
+      if (this.timers.delete(id)) callback();
+    }
+  }
   matchMedia() { return { matches: true }; }
   scrollTo({ top }) { this.scrollY = top; }
 }
@@ -455,13 +463,13 @@ test("dock re-renders when GitHub routes between sections without a turbo event"
 function fakeStorage(get = async () => ({})) {
   const listeners = new Set();
   return {
-    local: { get },
+    local: { get, set: async () => {} },
     onChanged: {
       addListener: (listener) => listeners.add(listener),
       removeListener: (listener) => listeners.delete(listener),
     },
-    emit(value, area = "local") {
-      for (const listener of listeners) listener({ shortcuts: { newValue: value } }, area);
+    emit(value, area = "local", key = "shortcuts") {
+      for (const listener of listeners) listener({ [key]: { newValue: value } }, area);
     },
     listeners,
   };
@@ -638,5 +646,274 @@ test("single key shortcuts activate only outside text entry and require exact mo
   fixture.window.scrollY = 500;
   assert.equal(pressShortcut(fixture, "KeyT").defaultPrevented, false);
   assert.equal(fixture.window.scrollY, 500);
+  controller.destroy();
+});
+
+function addNativeRefresh(fixture, path = "/octo/repo/pull/123/changes") {
+  return append(fixture.nativeReview.parentElement, "a", {
+    href: path, "aria-label": "Refresh", "data-refresh-button-visible": "true", "data-loading": "false",
+  }, "Refresh");
+}
+
+const autoToggle = (fixture) => fixture.document.querySelector("[data-gqv-auto-refresh]");
+
+test("auto refresh defaults off, clicks each update once, and stops when disabled", () => {
+  const fixture = buildFixture();
+  const refresh = addNativeRefresh(fixture);
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes");
+  controller.start();
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "false");
+  assert.equal(fixture.window.timers.size, 0);
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  autoToggle(fixture).click();
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  fixture.window.flushTimers();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1);
+  refresh.setAttribute("data-loading", "true");
+  fixture.window.flushTimers();
+  refresh.setAttribute("data-loading", "false");
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1, "loading does not re-arm a stale refresh signal");
+  refresh.setAttribute("data-refresh-button-visible", "false");
+  fixture.window.flushTimers();
+  refresh.setAttribute("data-refresh-button-visible", "true");
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 2);
+  autoToggle(fixture).click();
+  assert.equal(fixture.window.timers.size, 0);
+  controller.destroy();
+});
+
+test("an update inserted later is detected without re-rendering the dock or repeated clicks on replacements", () => {
+  const fixture = buildFixture();
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes");
+  controller.start();
+  const toggle = autoToggle(fixture);
+  toggle.click();
+  fixture.window.flushTimers();
+  const first = addNativeRefresh(fixture);
+  fixture.window.flushTimers();
+  assert.equal(first.clicks, 1);
+  first.remove();
+  const replacement = addNativeRefresh(fixture);
+  fixture.window.flushTimers();
+  assert.equal(replacement.clicks, undefined, "a React replacement cannot loop on the same signal");
+  assert.equal(autoToggle(fixture), toggle);
+  controller.destroy();
+});
+
+test("auto refresh pauses for focus, drafts, previews, and dialogs, then resumes", () => {
+  const fixture = buildFixture();
+  const refresh = addNativeRefresh(fixture);
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes");
+  controller.start();
+  autoToggle(fixture).click();
+  fixture.comment.focus();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  fixture.document.activeElement = fixture.document.body;
+  fixture.comment.value = "My unfinished review";
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  fixture.comment.hidden = true;
+  fixture.comment.form = append(fixture.main, "form");
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined, "previewing a draft still pauses refresh");
+  fixture.comment.form.hidden = true;
+  const dialog = append(fixture.main, "div", { role: "dialog" });
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  dialog.hidden = true;
+  const editor = append(fixture.main, "div", { contenteditable: "plaintext-only" }, "Draft");
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  editor.textContent = "";
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1);
+  controller.destroy();
+});
+
+test("auto refresh works on Conversation and legacy Files, but stops on other routes", () => {
+  const fixture = buildFixture();
+  let location = "https://github.com/octo/repo/pull/123/files";
+  const refresh = addNativeRefresh(fixture, "/octo/repo/pull/123/files");
+  const controller = createFixtureController(fixture, () => location);
+  controller.start();
+  autoToggle(fixture).click();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1);
+  location = "https://github.com/octo/repo/pull/123";
+  refresh.setAttribute("href", "/octo/repo/pull/123");
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 2);
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  for (const path of ["/octo/repo/pull/123/checks", "/octo/repo/pull/123/commits", "/octo/repo/issues/123"]) {
+    location = "https://github.com" + path;
+    fixture.window.navigation.dispatch("navigate");
+    fixture.window.flushFrames();
+    assert.equal(autoToggle(fixture), null);
+    assert.equal(fixture.window.timers.size, 0);
+  }
+  controller.destroy();
+});
+
+test("queued auto refresh rechecks the route before acting, even before navigation renders", () => {
+  const fixture = buildFixture();
+  let location = "https://github.com/octo/repo/pull/123/changes";
+  const refresh = addNativeRefresh(fixture);
+  const controller = createFixtureController(fixture, () => location);
+  controller.start();
+  autoToggle(fixture).click();
+  location = "https://github.com/octo/repo/issues/123";
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  assert.equal(fixture.window.timers.size, 0);
+  controller.destroy();
+});
+
+test("auto refresh saves separately from shortcuts and restores on another tab", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage();
+  const writes = [];
+  storage.local.set = async (value) => { writes.push(value); };
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes", { storage });
+  controller.start();
+  assert.equal(autoToggle(fixture).disabled, true);
+  await Promise.resolve();
+  autoToggle(fixture).click();
+  assert.equal(autoToggle(fixture).disabled, true);
+  await Promise.resolve();
+  assert.deepEqual(writes, [{ autoRefresh: true }]);
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  const other = buildFixture();
+  const restored = createFixtureController(other, () => "https://github.com/octo/repo/pull/123", {
+    storage: fakeStorage(async () => ({ autoRefresh: true })),
+  });
+  restored.start();
+  await Promise.resolve();
+  assert.equal(autoToggle(other).getAttribute("aria-pressed"), "true");
+  restored.destroy();
+  storage.emit(false, "sync", "autoRefresh");
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  storage.emit(undefined, "local", "autoRefresh");
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "false");
+  assert.equal(fixture.window.timers.size, 0);
+  controller.destroy();
+  assert.equal(storage.listeners.size, 0);
+});
+
+test("auto refresh storage updates beat late reads without affecting shortcuts", async () => {
+  const fixture = buildFixture();
+  let resolveAuto;
+  const storage = fakeStorage((key) => key === "autoRefresh" ? new Promise(resolve => { resolveAuto = resolve; }) : Promise.resolve({ shortcuts: { top: "J" } }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes", { storage });
+  controller.start();
+  storage.emit(true, "local", "autoRefresh");
+  resolveAuto({ autoRefresh: false });
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  assert.equal(fixture.document.querySelector("[data-gqv-top]").getAttribute("aria-keyshortcuts"), "J");
+  controller.destroy();
+  assert.equal(fixture.window.timers.size, 0);
+});
+
+test("failed auto refresh saves keep the previous setting and allow retry", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => { throw new Error("read unavailable"); });
+  storage.local.set = async () => { throw new Error("write unavailable"); };
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes", { storage });
+  controller.start();
+  await Promise.resolve();
+  autoToggle(fixture).click();
+  await Promise.resolve();
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "false");
+  assert.equal(autoToggle(fixture).disabled, false);
+  assert.match(autoToggle(fixture).textContent, /retry/);
+  assert.equal(fixture.window.timers.size, 0);
+  storage.local.set = async () => {};
+  autoToggle(fixture).click();
+  await Promise.resolve();
+  assert.equal(autoToggle(fixture).getAttribute("aria-pressed"), "true");
+  controller.destroy();
+});
+
+test("destroy cancels auto refresh and ignores an in-flight setting save", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => ({ autoRefresh: true }));
+  const refresh = addNativeRefresh(fixture);
+  let completeSave;
+  storage.local.set = () => new Promise(resolve => { completeSave = resolve; });
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes", { storage });
+  controller.start();
+  await Promise.resolve();
+  autoToggle(fixture).click();
+  assert.equal(fixture.window.timers.size, 0);
+  controller.destroy();
+  completeSave();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  assert.equal(autoToggle(fixture), null);
+  assert.equal(fixture.window.timers.size, 0);
+});
+
+test("auto refresh resumes for updates that arrived while away or disabled", () => {
+  const fixture = buildFixture();
+  let location = "https://github.com/octo/repo/pull/123/changes";
+  const refresh = addNativeRefresh(fixture);
+  const controller = createFixtureController(fixture, () => location);
+  controller.start();
+  autoToggle(fixture).click();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1);
+  location = "https://github.com/octo/repo/pull/123/checks";
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+  refresh.setAttribute("data-refresh-button-visible", "false");
+  refresh.setAttribute("data-refresh-button-visible", "true");
+  location = "https://github.com/octo/repo/pull/123/changes";
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 2, "returning to the same page re-arms detection");
+  location = "https://github.com/octo/repo/issues/123";
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+  assert.equal(fixture.window.timers.size, 0);
+  refresh.setAttribute("data-refresh-button-visible", "false");
+  refresh.setAttribute("data-refresh-button-visible", "true");
+  location = "https://github.com/octo/repo/pull/123/changes";
+  fixture.window.navigation.dispatch("navigate");
+  fixture.window.flushFrames();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 3, "returning from a non-PR route also re-arms detection");
+  autoToggle(fixture).click();
+  refresh.setAttribute("data-refresh-button-visible", "false");
+  refresh.setAttribute("data-refresh-button-visible", "true");
+  autoToggle(fixture).click();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 4, "re-enabling handles an update missed while disabled");
+  controller.destroy();
+});
+
+test("clearing a prefilled draft resumes refresh even when its default text remains", () => {
+  const fixture = buildFixture();
+  fixture.comment.textContent = "A server-rendered draft";
+  fixture.comment.value = "A server-rendered draft";
+  const refresh = addNativeRefresh(fixture);
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes");
+  controller.start();
+  autoToggle(fixture).click();
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, undefined);
+  fixture.comment.value = "";
+  fixture.window.flushTimers();
+  assert.equal(refresh.clicks, 1);
   controller.destroy();
 });

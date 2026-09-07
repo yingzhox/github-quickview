@@ -7,6 +7,7 @@ const {
   discoverNativeTabs,
   findCommentTarget,
   findReviewTarget,
+  findRefreshTarget,
   parsePullRequestLocation,
 } = require("../src/core.js");
 
@@ -22,6 +23,40 @@ function usableElement(overrides = {}) {
     querySelectorAll: () => [],
     ...overrides,
   };
+}
+
+function refreshFixture(options = {}) {
+  const attributes = {
+    href: "/octo/repo/pull/123/changes",
+    "data-refresh-button-visible": "true",
+    "data-loading": "false",
+    ...options.attributes,
+  };
+  const main = {};
+  const section = {
+    querySelectorAll: () => [{
+      textContent: options.heading || "Pull request toolbar",
+      closest: () => section,
+    }],
+  };
+  const candidate = usableElement({
+    textContent: "Refresh",
+    getAttribute: (name) => attributes[name] ?? null,
+    closest: (selector) => {
+      if (selector === "section") return options.inToolbar === false ? null : section;
+      if (selector === 'main, [role="main"]') return options.inMain === false ? null : main;
+      return options.blockedAncestor || null;
+    },
+    ...options.element,
+  });
+  const documentNode = {
+    defaultView: { getComputedStyle: () => ({ visibility: "visible", display: "block", ...options.style }) },
+    querySelectorAll: (selector) => {
+      assert.equal(selector, 'a[data-refresh-button-visible="true"][href]');
+      return [candidate];
+    },
+  };
+  return { candidate, documentNode };
 }
 
 test("parsePullRequestLocation accepts exact GitHub PR sections", () => {
@@ -112,6 +147,95 @@ test("findReviewTarget requires one usable toolbar candidate", () => {
   assert.equal(findReviewTarget(documentNode), null);
   section.querySelectorAll = () => [usableElement({ textContent: "Submit review", disabled: true })];
   assert.equal(findReviewTarget(documentNode), null);
+});
+
+test("findRefreshTarget accepts the native Files changed refresh link and legacy files route", () => {
+  for (const route of ["changes", "files"]) {
+    const { candidate, documentNode } = refreshFixture({ attributes: { href: `/octo/repo/pull/123/${route}?diff=split` } });
+    assert.equal(findRefreshTarget(documentNode, null, `https://github.com/octo/repo/pull/123/${route}`), candidate);
+  }
+});
+
+test("findRefreshTarget accepts an explicit Conversation refresh marker in the PR main region", () => {
+  const { candidate, documentNode } = refreshFixture({
+    attributes: { href: "/octo/repo/pull/123" },
+    inToolbar: false,
+  });
+  assert.equal(findRefreshTarget(documentNode, null, "https://github.com/octo/repo/pull/123"), candidate);
+
+  const outsideMain = refreshFixture({ attributes: { href: "/octo/repo/pull/123" }, inMain: false });
+  assert.equal(findRefreshTarget(outsideMain.documentNode, null, "https://github.com/octo/repo/pull/123"), null);
+});
+
+test("findRefreshTarget ignores hidden, disabled, loading, disconnected, or extension controls", () => {
+  const rejected = [
+    { attributes: { "data-refresh-button-visible": "false" } },
+    { attributes: { "data-refresh-button-visible": null } },
+    { attributes: { disabled: "" } },
+    { attributes: { "aria-disabled": "true" } },
+    { attributes: { "data-loading": "true" } },
+    { attributes: { "aria-busy": "true" } },
+    { element: { disabled: true } },
+    { element: { isConnected: false } },
+    { element: { getClientRects: () => [] } },
+    { blockedAncestor: {} },
+    { style: { display: "none" } },
+    { style: { visibility: "hidden" } },
+    { style: { visibility: "collapse" } },
+  ];
+  for (const options of rejected) {
+    const { documentNode } = refreshFixture(options);
+    assert.equal(findRefreshTarget(documentNode, null, "https://github.com/octo/repo/pull/123/changes"), null, JSON.stringify(options));
+  }
+  const { candidate, documentNode } = refreshFixture();
+  assert.equal(findRefreshTarget(documentNode, { contains: (node) => node === candidate }, "https://github.com/octo/repo/pull/123/changes"), null);
+});
+
+test("findRefreshTarget rejects unrelated Refresh links, unsafe scopes, and destinations", () => {
+  const rejected = [
+    { inToolbar: false },
+    { heading: "User comment" },
+    { attributes: { "data-refresh-button-visible": null } },
+    { attributes: { href: "https://example.com/octo/repo/pull/123/changes" } },
+    { attributes: { href: "https://gist.github.com/octo/repo/pull/123/changes" } },
+    { attributes: { href: "http://github.com/octo/repo/pull/123/changes" } },
+    { attributes: { href: "/octo/repo/pull/124/changes" } },
+    { attributes: { href: "/other/repo/pull/123/changes" } },
+    { attributes: { href: "/octo/repo/pull/123" } },
+    { attributes: { href: "/octo/repo/pull/123/checks" } },
+    { attributes: { href: "/octo/repo/pull/123/changes/extra" } },
+    { attributes: { href: "/octo/repo/pull/123/changes#discussion_r1" } },
+    { attributes: { href: "javascript:alert(1)" } },
+    { attributes: { href: "http://[" } },
+  ];
+  for (const options of rejected) {
+    const { documentNode } = refreshFixture(options);
+    assert.equal(findRefreshTarget(documentNode, null, "https://github.com/octo/repo/pull/123/changes"), null, JSON.stringify(options));
+  }
+  const { documentNode } = refreshFixture();
+  for (const location of ["https://github.com/octo/repo/pull/123/commits", "https://github.com/octo/repo/pull/123/checks", "https://example.com/octo/repo/pull/123/changes"]) {
+    assert.equal(findRefreshTarget(documentNode, null, location), null, location);
+  }
+});
+
+test("findRefreshTarget excludes comments, diffs, forms, dialogs, and hidden ancestors", () => {
+  for (const ancestor of ['[hidden]', '[inert]', '[aria-hidden="true"]', '[aria-disabled="true"]', '[aria-busy="true"]', '[data-loading="true"]', 'form', 'dialog', '[role="dialog"]', '.markdown-body', '.js-comment-body', '.js-comment', '.comment-body', '.js-inline-comment-form', '[data-commenting]', '.diff-table', '[data-diff-anchor]', 'pre', 'code']) {
+    const { documentNode, candidate } = refreshFixture();
+    const closest = candidate.closest;
+    candidate.closest = (selector) => selector.split(", ").includes(ancestor) ? {} : closest(selector);
+    assert.equal(findRefreshTarget(documentNode, null, "https://github.com/octo/repo/pull/123/changes"), null, ancestor);
+  }
+});
+
+test("findRefreshTarget requires exactly one usable native refresh candidate", () => {
+  const first = refreshFixture();
+  const second = refreshFixture();
+  first.documentNode.querySelectorAll = () => [first.candidate, second.candidate];
+  assert.equal(findRefreshTarget(first.documentNode, null, "https://github.com/octo/repo/pull/123/changes"), null);
+  second.candidate.disabled = true;
+  assert.equal(findRefreshTarget(first.documentNode, null, "https://github.com/octo/repo/pull/123/changes"), first.candidate);
+  first.documentNode.querySelectorAll = () => [];
+  assert.equal(findRefreshTarget(first.documentNode, null, "https://github.com/octo/repo/pull/123/changes"), null);
 });
 
 test("calculateScrollProgress clamps and handles short pages", () => {

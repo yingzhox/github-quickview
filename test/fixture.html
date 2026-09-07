@@ -82,6 +82,7 @@
       <button id="simulate-return" type="button">Simulate returning to the pull request</button>
       <button id="simulate-nav-replace" type="button">Replace pull request navigation</button>
       <button id="simulate-duplicate" type="button">Add a duplicate dock</button>
+      <button id="simulate-update" type="button">Simulate new changes</button>
     </div>
     <header class="site-header">GitHub&nbsp;&nbsp; / &nbsp;octo / repo</header>
     <main>
@@ -106,6 +107,12 @@
         </div>
       </section>
 
+      <section id="refresh-fixture">
+        <h2 class="sr-only">Pull request toolbar</h2>
+        <a id="native-refresh" href="/octo/repo/pull/123/changes" data-refresh-button-visible="false" data-loading="false" aria-label="Refresh" hidden>Refresh</a>
+        <output id="refresh-result" aria-live="polite"></output>
+      </section>
+
       <section id="files" aria-label="Changed files"></section>
       <section id="conversation-fixture">
         <label for="new_comment_field">Leave a comment</label>
@@ -126,6 +133,21 @@
       const fixtureBase = "/octo/repo/pull/123";
       const fixturePath = location.pathname.replace(/\/+$/, "");
       const conversationView = params.get("view") === "conversation" || fixturePath === fixtureBase;
+      const refreshLink = document.querySelector("#native-refresh");
+      refreshLink.setAttribute("href", fixturePath);
+      refreshLink.dataset.clicks = "0";
+      refreshLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        refreshLink.dataset.clicks = String(Number(refreshLink.dataset.clicks) + 1);
+        refreshLink.dataset.refreshButtonVisible = "false";
+        refreshLink.hidden = true;
+        document.querySelector("#refresh-result").textContent = `Native refresh activated ${refreshLink.dataset.clicks} time(s)`;
+      });
+      document.querySelector("#simulate-update").addEventListener("click", () => {
+        refreshLink.hidden = false;
+        refreshLink.dataset.refreshButtonVisible = "true";
+        document.querySelector("#refresh-result").textContent = "New changes available";
+      });
 
       const files = document.querySelector("#files");
       for (let index = 1; index <= 18; index += 1) {

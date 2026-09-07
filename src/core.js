@@ -196,6 +196,51 @@
     return null;
   }
 
+  function findRefreshTarget(documentNode, extensionRoot, locationValue) {
+    var location = parsePullRequestLocation(locationValue);
+    if (!documentNode || typeof documentNode.querySelectorAll !== 'function' || !location ||
+        (location.section !== 'changes' && location.section !== 'conversation')) {
+      return null;
+    }
+    var candidates = documentNode.querySelectorAll('a[data-refresh-button-visible="true"][href]');
+    var matches = Array.prototype.filter.call(candidates, function (candidate) {
+      if (!isUsable(candidate) || !candidate.closest ||
+          candidate.getAttribute('data-refresh-button-visible') !== 'true' ||
+          candidate.getAttribute('disabled') !== null ||
+          candidate.getAttribute('data-loading') === 'true' ||
+          candidate.getAttribute('aria-busy') === 'true' ||
+          (extensionRoot && extensionRoot.contains(candidate)) ||
+          candidate.closest('[hidden], [inert], [aria-hidden="true"], [aria-disabled="true"], [aria-busy="true"], [data-loading="true"], form, dialog, [role="dialog"], .markdown-body, .js-comment-body, .js-comment, .comment-body, .js-inline-comment-form, [data-commenting], .diff-table, [data-diff-anchor], pre, code')) {
+        return false;
+      }
+      var view = documentNode.defaultView;
+      if (view && typeof view.getComputedStyle === 'function') {
+        var style = view.getComputedStyle(candidate);
+        if (style.visibility === 'hidden' || style.visibility === 'collapse' || style.display === 'none') {
+          return false;
+        }
+      }
+      if (location.section === 'changes') {
+        var section = candidate.closest('section');
+        if (!section || !Array.prototype.some.call(section.querySelectorAll('h2'), function (heading) {
+          return normalizedText(heading) === 'Pull request toolbar' && heading.closest('section') === section;
+        })) {
+          return false;
+        }
+      } else if (!candidate.closest('main, [role="main"]')) {
+        return false;
+      }
+      var target;
+      try {
+        target = parsePullRequestLocation(new URL(candidate.getAttribute('href'), location.url));
+      } catch (error) {
+        return false;
+      }
+      return target && target.path === location.path && target.section === location.section && !target.url.hash;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   function calculateScrollProgress(scrollTop, scrollHeight, clientHeight) {
     var maximum = Math.max(0, Number(scrollHeight) - Number(clientHeight));
     if (!maximum) {
@@ -210,6 +255,7 @@
     discoverNativeTabs: discoverNativeTabs,
     findCommentTarget: findCommentTarget,
     findReviewTarget: findReviewTarget,
+    findRefreshTarget: findRefreshTarget,
     calculateScrollProgress: calculateScrollProgress
   };
   globalScope.GitHubQuickviewCore = globalScope.GitHubQuickviewCore || api;
