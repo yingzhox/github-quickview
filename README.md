@@ -21,6 +21,7 @@ The extension never posts, approves, merges, or sends data itself.
 ## Shortcuts
 
 Shortcuts work outside text fields, so they never interfere while you are writing a comment.
+The defaults are:
 
 | Action | macOS | Windows/Linux |
 | --- | --- | --- |
@@ -29,9 +30,22 @@ Shortcuts work outside text fields, so they never interfere while you are writin
 | Comment | `⌥M` | `Alt+M` |
 | Back to top | `⌥T` | `Alt+T` |
 
+To change them, open `chrome://extensions`, find **GitHub Quickview**, and choose
+**Details → Extension options**. Select a shortcut field and press a single letter or
+number, such as `C` or `1`. Ctrl, Alt (Option), Shift, and Command are optional.
+Choose **Clear** to disable an
+action's shortcut, or **Restore defaults** to reset the assignments, then **Save shortcuts**.
+Duplicate assignments must be resolved before saving. GitHub, browser, and operating system
+shortcuts may take priority over your chosen keys.
+
+Settings are saved locally on this device. Open PR tabs update their shortcuts and key
+hints immediately. After updating the unpacked extension, reload it and refresh existing
+PR tabs once to load the new settings support.
+
 ## Density
 
-The bar sheds detail as the window narrows rather than scrolling sideways: full labels above 860 px, short labels below it, and keys alone below 480 px, where the shortcut caps are the whole control.
+The bar sheds detail as the window narrows: full labels above 860 px, short labels below
+it, and keys below 480 px. Controls without a shortcut keep their short labels.
 
 ## Install
 
@@ -47,8 +61,9 @@ and unzip it, or clone this repository. Then:
 
 ## Design and privacy
 
-- Manifest V3 content script only—no background worker.
-- No requested runtime permissions, storage, analytics, network calls, or remote code.
+- Manifest V3 content scripts and an extension options page, with no background worker.
+- Requests only the `storage` permission to save shortcut preferences locally. No
+  analytics, network calls, remote code, or stored page content.
 - Runs only on `https://github.com/*/*/pull/*`.
 - Uses GitHub's native navigation links and controls rather than recreating review actions.
 - Keeps a single terminal palette in both GitHub themes. A command bar that repaints
@@ -73,7 +88,7 @@ The fixture is available at `http://127.0.0.1:4173/octo/repo/pull/123/changes`. 
 
 ## Scope
 
-Version 0.4 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
+Version 0.5 targets `github.com` pull-request Conversation, Commits, Checks, Files changed (`/changes`), and compatibility Files (`/files`) routes. GitHub Enterprise hosts and direct comment/review submission are intentionally out of scope.
 
 ## Releasing
 
@@ -86,7 +101,7 @@ Releases are built and published by GitHub Actions when a `v*` tag is pushed.
 3. Commit, then tag and push:
 
 ```sh
-git tag v0.5.0
+git tag v0.6.0
 git push origin main --follow-tags
 ```
 

@@ -279,12 +279,12 @@
         '</div></div>',
 
     s4: '<div class="shot"><h1>Nothing to trust it with</h1>' +
-        '<p class="sub">Quickview is a single content script that runs only on pull request pages. There is no account, no setup and nothing to opt out of.</p>' +
+        '<p class="sub">Quickview runs on pull request pages and keeps shortcut preferences on your device. There is no account and no tracking.</p>' +
         '<div class="body"><div class="privacy">' +
-          '<div class="card"><span class="no">NO PERMISSIONS</span><h3>Requests nothing</h3><p>The manifest declares no permissions and no host permissions beyond the pull request pages it runs on.</p></div>' +
+          '<div class="card"><span class="no">LOCAL SETTINGS</span><h3>Your choice of keys</h3><p>Reassign or disable shortcuts in Extension options. Only the storage permission is needed to save your choices.</p></div>' +
           '<div class="card"><span class="no">NO NETWORK</span><h3>Sends nothing</h3><p>No analytics, no telemetry, no remote code. The extension makes no network requests of any kind.</p></div>' +
-          '<div class="card"><span class="no">NO STORAGE</span><h3>Keeps nothing</h3><p>No storage, no cookies, no identifiers. Close the tab and nothing of yours remains.</p></div>' +
-          '<div class="card"><span class="no">OPEN SOURCE</span><h3>Read it yourself</h3><p>MIT licensed, dependency free, under 900 lines of JavaScript and CSS. Read the whole thing in one sitting.</p></div>' +
+          '<div class="card"><span class="no">NO PAGE DATA</span><h3>Preferences only</h3><p>Only shortcut settings stay on your device. No page content, cookies or identifiers are stored.</p></div>' +
+          '<div class="card"><span class="no">OPEN SOURCE</span><h3>Read it yourself</h3><p>MIT licensed and dependency free. The extension is small enough to read before you trust it.</p></div>' +
         '</div>' +
         '<div style="margin-top:30px;display:grid;place-items:center">' + bar({ active: 'conversation', progress: 100, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div>' +
         '</div></div>',
@@ -293,7 +293,7 @@
       '<h2>GitHub Quickview</h2><p>Long pull requests, one keystroke away</p></div>',
 
     marquee: '<div class="promo"><h2>Long pull requests, one keystroke away</h2>' +
-      '<p>A keyboard-first command bar for GitHub pull requests. No permissions, no network, no data.</p>' +
+      '<p>A keyboard-first command bar for GitHub pull requests. Your shortcuts. No network or tracking.</p>' +
       '<div class="bar-wrap" style="margin-top:14px">' + bar({ active: 'conversation', progress: 60, style: 'position:relative;left:auto;bottom:auto;transform:none;' }) + '</div></div>'
   };
 

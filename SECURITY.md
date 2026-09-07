@@ -6,8 +6,8 @@ Only the most recent release receives fixes.
 
 | Version | Supported |
 | --- | --- |
-| 0.4.x | Yes |
-| < 0.4 | No |
+| 0.5.x | Yes |
+| < 0.5 | No |
 
 ## Reporting a vulnerability
 
@@ -21,9 +21,10 @@ needed to reproduce the problem.
 
 ## Threat model
 
-GitHub Quickview is a Manifest V3 content script that runs only on
-`https://github.com/*/*/pull/*`. It requests no runtime permissions and has no
-background worker, storage, analytics, network calls, or remote code. It never posts,
+GitHub Quickview uses Manifest V3 content scripts that run only on
+`https://github.com/*/*/pull/*`. Its extension options page uses the `storage` permission
+to save shortcut preferences in `chrome.storage.local`. It stores no page content and
+has no background worker, analytics, network calls, or remote code. It never posts,
 approves, merges, or transmits data.
 
 Because it runs inside the GitHub page, the findings most worth reporting are:

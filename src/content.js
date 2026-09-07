@@ -2,7 +2,8 @@
   'use strict';
 
   var core = globalScope.GitHubQuickviewCore;
-  if (!core) {
+  var shortcutSettings = globalScope.GitHubQuickviewShortcuts;
+  if (!core || !shortcutSettings) {
     return;
   }
 
@@ -11,10 +12,10 @@
   var NAVIGATION_EVENTS = ['turbo:load', 'turbo:render', 'pjax:end', 'popstate'];
 
   var shortcutTargets = {
-    KeyC: '[data-gqv-section="conversation"]',
-    KeyF: '[data-gqv-section="changes"]',
-    KeyM: '[data-gqv-comment]',
-    KeyT: '[data-gqv-top]'
+    conversation: '[data-gqv-section="conversation"]',
+    changes: '[data-gqv-section="changes"]',
+    comment: '[data-gqv-comment]',
+    top: '[data-gqv-top]'
   };
 
   function createController(options) {
@@ -22,6 +23,7 @@
     var documentNode = options.document || globalScope.document;
     var windowNode = options.window || globalScope.window;
     var getLocation = options.getLocation || function () { return windowNode.location; };
+    var storage = options.storage || globalScope.chrome && globalScope.chrome.storage;
     if (!documentNode || !windowNode) {
       return { install: function () {}, refresh: function () {}, destroy: function () {} };
     }
@@ -37,6 +39,35 @@
     var reviewResetTimer = null;
     var hydrationTimer = null;
     var hydrationAttempts = 0;
+    var shortcuts = shortcutSettings.normalize();
+    var shortcutsReady = !storage;
+    var settingsRevision = 0;
+
+    function onSettingsChanged(changes, area) {
+      if (destroyed || area !== 'local' || !changes[shortcutSettings.STORAGE_KEY]) {
+        return;
+      }
+      settingsRevision += 1;
+      shortcuts = shortcutSettings.normalize(changes[shortcutSettings.STORAGE_KEY].newValue);
+      shortcutsReady = true;
+      scheduleRefresh();
+    }
+
+    async function loadShortcuts() {
+      var revision = settingsRevision;
+      var saved;
+      try {
+        saved = await storage.local.get(shortcutSettings.STORAGE_KEY);
+      } catch (error) {
+        // Keep the defaults usable if extension storage is unavailable.
+        saved = {};
+      }
+      if (!destroyed && revision === settingsRevision) {
+        shortcuts = shortcutSettings.normalize(saved[shortcutSettings.STORAGE_KEY]);
+        shortcutsReady = true;
+        scheduleRefresh();
+      }
+    }
 
     function getUrl() {
       var current = getLocation();
@@ -83,17 +114,23 @@
       return /Mac|iPhone|iPad|iPod/.test(platform);
     }
 
-    function shortcutLabel(key) {
-      return isApplePlatform() ? '⌥' + key : 'Alt+' + key;
+    function shortcutLabel(action) {
+      return shortcutSettings.label(shortcuts[action], isApplePlatform());
     }
 
     // Added before the label rather than after it: the command bar leads
     // with the shortcut and lets the word explain it.
-    function addShortcut(control, key) {
+    function addShortcut(control, action) {
+      var label = shortcutLabel(action);
+      if (!label) {
+        control.className += ' gh-quickview__no-shortcut';
+        return;
+      }
+      control.setAttribute('aria-keyshortcuts', shortcuts[action]);
       var hint = documentNode.createElement('kbd');
       hint.className = 'gh-quickview__shortcut';
       hint.setAttribute('aria-hidden', 'true');
-      hint.textContent = shortcutLabel(key);
+      hint.textContent = label;
       control.appendChild(hint);
     }
 
@@ -118,17 +155,19 @@
     }
 
     function onKeyDown(event) {
-      if (!root || event.defaultPrevented || event.repeat || !event.altKey || event.shiftKey ||
-          event.ctrlKey || event.metaKey || isTextEntry(event.target)) {
+      if (!root || !shortcutsReady || event.defaultPrevented || event.repeat || isTextEntry(event.target)) {
         return;
       }
-      var selector = shortcutTargets[event.code];
-      if (!selector) {
+      var shortcut = shortcutSettings.fromEvent(event);
+      var action = shortcut && Object.keys(shortcutTargets).find(function (id) {
+        return shortcuts[id] === shortcut;
+      });
+      if (!action) {
         return;
       }
-      var control = root.querySelector(selector);
-      if (!control && event.code === 'KeyM') {
-        control = root.querySelector(shortcutTargets.KeyC);
+      var control = root.querySelector(shortcutTargets[action]);
+      if (!control && action === 'comment') {
+        control = root.querySelector(shortcutTargets.conversation);
       }
       if (!control) {
         return;
@@ -205,17 +244,15 @@
         link.className = 'gh-quickview__tab' + (tab.active ? ' is-active' : '');
         link.setAttribute('data-gqv-section', tab.section);
         var href = tab.href;
-        var shortcutKey = tab.section === 'conversation' ? 'C' : tab.section === 'changes' ? 'F' : '';
+        var shortcut = shortcutLabel(tab.section);
         if (tab.section === 'conversation') {
           var conversationUrl = new URL(tab.href, 'https://github.com');
           conversationUrl.hash = 'new_comment_field';
           href = conversationUrl.pathname + conversationUrl.search + conversationUrl.hash;
         }
         link.setAttribute('href', href);
-        link.setAttribute('aria-label', tab.label + (shortcutKey ? ', shortcut ' + shortcutLabel(shortcutKey) : ''));
-        if (shortcutKey) {
-          addShortcut(link, shortcutKey);
-        }
+        link.setAttribute('aria-label', tab.label + (shortcut ? ', shortcut ' + shortcut : ''));
+        addShortcut(link, tab.section);
         var fullLabel = documentNode.createElement('span');
         fullLabel.className = 'gh-quickview__label-full';
         fullLabel.setAttribute('aria-hidden', 'true');
@@ -260,7 +297,7 @@
         action.setAttribute(commentTarget ? 'data-gqv-comment' : 'data-gqv-review', '');
         action.setAttribute('aria-label', commentTarget ? 'Jump to comment composer' : 'Open GitHub submit review');
         if (commentTarget) {
-          addShortcut(action, 'M');
+          addShortcut(action, 'comment');
         }
         var actionLabel = documentNode.createElement('span');
         actionLabel.setAttribute('aria-hidden', 'true');
@@ -274,7 +311,7 @@
       topButton.className = 'gh-quickview__top';
       topButton.setAttribute('data-gqv-top', '');
       topButton.setAttribute('aria-label', 'Back to top');
-      addShortcut(topButton, 'T');
+      addShortcut(topButton, 'top');
       var topLabel = documentNode.createElement('span');
       topLabel.setAttribute('aria-hidden', 'true');
       topLabel.textContent = 'Top';
@@ -399,6 +436,10 @@
         return;
       }
       installed = true;
+      if (storage) {
+        storage.onChanged.addListener(onSettingsChanged);
+        loadShortcuts();
+      }
       NAVIGATION_EVENTS.forEach(function (eventName) {
         windowNode.addEventListener(eventName, scheduleRefresh);
       });
@@ -417,6 +458,9 @@
 
     function destroy() {
       destroyed = true;
+      if (storage && installed) {
+        storage.onChanged.removeListener(onSettingsChanged);
+      }
       clearHydrationRetry();
       if (reviewResetTimer !== null && windowNode.clearTimeout) {
         windowNode.clearTimeout(reviewResetTimer);

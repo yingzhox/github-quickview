@@ -34,7 +34,7 @@
   gap: 2px;
   max-width: calc(100vw - 2rem);
   padding: 6px 8px;
-  overflow: hidden;
+  overflow-x: auto;
   transform: translateX(-50%);
   isolation: isolate;
   color: var(--gqv-fg);
@@ -68,6 +68,7 @@
 
 #github-quickview .gh-quickview__tabs {
   overflow-x: auto;
+  min-width: 44px;
   max-width: 100%;
   scrollbar-width: none;
 }
@@ -198,6 +199,10 @@
   #github-quickview .gh-quickview__label-full,
   #github-quickview .gh-quickview__label-short { display: none; }
 
+  #github-quickview .gh-quickview__no-shortcut .gh-quickview__label-short { display: inline; }
+
+  #github-quickview button .gh-quickview__shortcut + span { display: none; }
+
   #github-quickview .gh-quickview__tab,
   #github-quickview button { gap: 0; padding: 3px 5px; }
 
@@ -207,10 +212,4 @@
 @media (prefers-reduced-motion: reduce) {
   #github-quickview.gh-quickview { scroll-behavior: auto; }
   #github-quickview :is(a, button) { transition: none; }
-}
-
-/* Windows and Linux render "Alt+C" rather than "⌥C", which needs more
-   room than a single-glyph key cap allows. */
-@media (min-width: 481px) {
-  #github-quickview .gh-quickview__shortcut { max-width: 5.5em; overflow: hidden; }
 }

@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #c9d4e5;
+  background: #0b0e14;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 680px; margin: 64px auto; padding: 0 24px; }
+.brand { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 600; }
+.brand span { color: #4ade9b; margin-right: 8px; }
+h1 { margin: 24px 0 12px; color: #f0f6fc; font-size: 28px; letter-spacing: -0.7px; }
+.intro { margin-bottom: 28px; color: #a0aec2; }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.shortcut-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(150px, 210px) auto; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid #232a36; }
+label { color: #f0f6fc; font-weight: 500; }
+input, button { border: 1px solid #38465b; border-radius: 6px; font: inherit; }
+input { width: 100%; padding: 9px 12px; color: #7dd3fc; background: #131a24; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; cursor: pointer; }
+input::placeholder { color: #8998ae; }
+input[aria-invalid="true"] { border-color: #ff9393; }
+button { padding: 9px 14px; color: #c9d4e5; background: #131a24; cursor: pointer; white-space: nowrap; }
+button:hover { background: #1c2432; }
+button:disabled { cursor: default; opacity: 0.5; }
+input:focus-visible, button:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; }
+#save { background: #7dd3fc; border-color: #7dd3fc; color: #0b0e14; font-weight: 600; }
+#save:hover { background: #a5e3ff; }
+.hint, footer { color: #8998ae; font-size: 13px; }
+.hint { margin: 14px 0 24px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; }
+#status { min-height: 24px; margin: 16px 0 24px; color: #4ade9b; }
+#status[data-error="true"] { color: #ff9393; }
+footer { border-top: 1px solid #232a36; padding-top: 20px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 520px) {
+  main { margin: 28px auto; padding: 0 20px; }
+  h1 { font-size: 25px; }
+  .shortcut-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  label { grid-column: 1 / -1; }
+}

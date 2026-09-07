@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-07
+
+### Added
+
+- Extension options for reassigning or disabling each keyboard shortcut, with duplicate
+  detection and a restore-defaults action. Preferences are stored locally and update
+  shortcuts and key hints in open pull request tabs immediately.
+- Shortcuts can use a single letter or number, with optional modifier keys.
+
+### Changed
+
+- Requests the `storage` permission for shortcut preferences only.
+- Controls without shortcuts keep readable labels on narrow screens.
+
 ## [0.4.0] - 2026-09-07
 
 ### Fixed
@@ -55,6 +69,7 @@ First public release. Earlier versions were developed privately and never publis
   no storage, no network calls, and no remote code.
 - The extension never posts, approves, merges, or transmits data.
 
-[Unreleased]: https://github.com/yingzhox/github-quickview/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/yingzhox/github-quickview/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/yingzhox/github-quickview/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/yingzhox/github-quickview/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yingzhox/github-quickview/releases/tag/v0.3.0

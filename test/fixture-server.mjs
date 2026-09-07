@@ -14,7 +14,7 @@ const contentTypes = {
 
 createServer((request, response) => {
   const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
-  const requested = pathname === "/src/core.js" || pathname === "/src/content.js" || pathname === "/src/content.css"
+  const requested = ["/src/core.js", "/src/shortcuts.js", "/src/content.js", "/src/content.css", "/src/options.html", "/src/options.js", "/src/options.css"].includes(pathname)
     ? pathname.slice(1)
     : "test/fixture.html";
   const filePath = normalize(join(root, requested));

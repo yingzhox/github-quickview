@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 global.GitHubQuickviewCore = require("../src/core.js");
+global.GitHubQuickviewShortcuts = require("../src/shortcuts.js");
 require("../src/content.js");
 
 class FakeElement {
@@ -240,11 +241,12 @@ function addTabs(nav) {
   }
 }
 
-function createFixtureController(fixture, getLocation) {
+function createFixtureController(fixture, getLocation, options = {}) {
   return global.GitHubQuickviewContent.createController({
     document: fixture.document,
     window: fixture.window,
     getLocation,
+    ...options,
   });
 }
 
@@ -447,5 +449,194 @@ test("dock re-renders when GitHub routes between sections without a turbo event"
   assert.doesNotMatch(conversation.className, /\bis-active\b/, "Conversation is no longer current");
   assert.equal(changes.getAttribute("aria-current"), "page");
 
+  controller.destroy();
+});
+
+function fakeStorage(get = async () => ({})) {
+  const listeners = new Set();
+  return {
+    local: { get },
+    onChanged: {
+      addListener: (listener) => listeners.add(listener),
+      removeListener: (listener) => listeners.delete(listener),
+    },
+    emit(value, area = "local") {
+      for (const listener of listeners) listener({ shortcuts: { newValue: value } }, area);
+    },
+    listeners,
+  };
+}
+
+function pressShortcut(fixture, code, modifiers = {}) {
+  const event = {
+    code, target: fixture.document.body, defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true; }, ...modifiers,
+  };
+  fixture.window.dispatch("keydown", event);
+  fixture.window.flushFrames();
+  return event;
+}
+
+test("saved shortcuts replace defaults and update hints and accessible shortcuts", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => ({ shortcuts: { top: "Ctrl+Shift+J", changes: null } }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+
+  const root = fixture.document.querySelector("#github-quickview");
+  const top = root.querySelector("[data-gqv-top]");
+  assert.equal(top.querySelector("kbd").textContent, "⌃⇧J");
+  assert.equal(top.getAttribute("aria-keyshortcuts"), "Ctrl+Shift+J");
+  const files = root.querySelector('[data-gqv-section="changes"]');
+  assert.equal(files.querySelector("kbd"), null);
+  assert.equal(files.getAttribute("aria-keyshortcuts"), null);
+  assert.match(files.className, /gh-quickview__no-shortcut/);
+
+  fixture.window.scrollY = 800;
+  assert.equal(pressShortcut(fixture, "KeyT", { altKey: true }).defaultPrevented, false);
+  assert.equal(pressShortcut(fixture, "KeyF", { altKey: true }).defaultPrevented, false);
+  assert.equal(pressShortcut(fixture, "KeyJ", { ctrlKey: true }).defaultPrevented, false);
+  assert.equal(fixture.window.scrollY, 800);
+  assert.equal(pressShortcut(fixture, "KeyJ", { ctrlKey: true, shiftKey: true }).defaultPrevented, true);
+  assert.equal(fixture.window.scrollY, 0);
+
+  files.click();
+  assert.equal(files.clicks, 1, "disabled shortcuts do not disable mouse controls");
+  controller.destroy();
+  assert.equal(storage.listeners.size, 0);
+});
+
+test("storage updates apply live, ignore other areas, and reset when removed", async () => {
+  const fixture = buildFixture();
+  fixture.window.navigator.platform = "Linux";
+  const storage = fakeStorage();
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  const top = () => fixture.document.querySelector("[data-gqv-top]");
+  storage.emit({ top: "Ctrl+Shift+1" }, "sync");
+  fixture.window.flushFrames();
+  assert.equal(top().querySelector("kbd").textContent, "Alt+T");
+  storage.emit({ top: "Ctrl+Shift+1" });
+  fixture.window.flushFrames();
+  assert.equal(top().querySelector("kbd").textContent, "Ctrl+Shift+1");
+  fixture.window.scrollY = 400;
+  pressShortcut(fixture, "Digit1", { ctrlKey: true, shiftKey: true });
+  assert.equal(fixture.window.scrollY, 0);
+  storage.emit(undefined);
+  fixture.window.flushFrames();
+  assert.equal(top().querySelector("kbd").textContent, "Alt+T");
+  controller.destroy();
+});
+
+test("late storage reads cannot overwrite changes or resurrect a destroyed controller", async () => {
+  const fixture = buildFixture();
+  let resolve;
+  const storage = fakeStorage(() => new Promise((done) => { resolve = done; }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  fixture.window.scrollY = 400;
+  assert.equal(pressShortcut(fixture, "KeyT", { altKey: true }).defaultPrevented, false,
+    "shortcuts wait for saved settings before accepting keys");
+  storage.emit({ top: "Alt+J" });
+  fixture.window.flushFrames();
+  resolve({ shortcuts: { top: "Alt+K" } });
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  assert.equal(fixture.document.querySelector("[data-gqv-top]").querySelector("kbd").textContent, "⌥J");
+  controller.destroy();
+  storage.emit({ top: "Alt+L" });
+  fixture.window.flushFrames();
+  assert.equal(fixture.document.querySelector("#github-quickview"), null);
+
+  const other = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  other.start();
+  other.destroy();
+  resolve({ shortcuts: { top: "Alt+K" } });
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  assert.equal(fixture.document.querySelector("#github-quickview"), null);
+});
+
+test("storage failures keep default shortcuts usable", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => { throw new Error("Storage unavailable"); });
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  fixture.window.scrollY = 500;
+  pressShortcut(fixture, "KeyT", { altKey: true });
+  assert.equal(fixture.window.scrollY, 0);
+  controller.destroy();
+});
+
+test("custom comment shortcut falls back to Conversation away from the composer", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => ({ shortcuts: { comment: "Alt+Shift+R" } }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123/changes", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  const conversation = fixture.document.querySelector("#github-quickview").querySelector('[data-gqv-section="conversation"]');
+  pressShortcut(fixture, "KeyR", { altKey: true, shiftKey: true });
+  assert.equal(conversation.clicks, 1);
+  assert.equal(fixture.nativeReview.clickCount, 0);
+  controller.destroy();
+});
+
+test("custom shortcuts ignore text entry, repeat, composition, and extra modifiers", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => ({ shortcuts: { top: "Ctrl+Shift+J" } }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  fixture.window.scrollY = 500;
+  for (const extra of [
+    { target: fixture.comment }, { target: append(fixture.main, "input") },
+    { target: append(fixture.main, "select") }, { target: { isContentEditable: true } },
+    { repeat: true }, { isComposing: true }, { defaultPrevented: true },
+    { altKey: true }, { metaKey: true }, { getModifierState: () => true },
+  ]) {
+    pressShortcut(fixture, "KeyJ", { ctrlKey: true, shiftKey: true, ...extra });
+    assert.equal(fixture.window.scrollY, 500);
+  }
+  controller.destroy();
+});
+
+test("single key shortcuts activate only outside text entry and require exact modifiers", async () => {
+  const fixture = buildFixture();
+  const storage = fakeStorage(async () => ({ shortcuts: { top: "T", comment: "1" } }));
+  const controller = createFixtureController(fixture, () => "https://github.com/octo/repo/pull/123", { storage });
+  controller.start();
+  await Promise.resolve();
+  fixture.window.flushFrames();
+  const top = fixture.document.querySelector("[data-gqv-top]");
+  assert.equal(top.querySelector("kbd").textContent, "T");
+  assert.equal(top.getAttribute("aria-keyshortcuts"), "T");
+  fixture.window.scrollY = 500;
+  for (const extra of [
+    { target: fixture.comment }, { target: append(fixture.main, "input") },
+    { target: append(fixture.main, "select") }, { target: { isContentEditable: true } },
+    { repeat: true }, { isComposing: true }, { keyCode: 229 }, { defaultPrevented: true },
+    { shiftKey: true }, { altKey: true }, { ctrlKey: true }, { metaKey: true },
+  ]) {
+    pressShortcut(fixture, "KeyT", extra);
+    assert.equal(fixture.window.scrollY, 500);
+  }
+  assert.equal(pressShortcut(fixture, "KeyF").defaultPrevented, false, "defaults still require Alt");
+  assert.equal(pressShortcut(fixture, "KeyT").defaultPrevented, true);
+  assert.equal(fixture.window.scrollY, 0);
+  assert.equal(pressShortcut(fixture, "Digit1").defaultPrevented, true);
+  assert.equal(fixture.document.activeElement, fixture.comment);
+  storage.emit({ top: null });
+  fixture.window.flushFrames();
+  fixture.window.scrollY = 500;
+  assert.equal(pressShortcut(fixture, "KeyT").defaultPrevented, false);
+  assert.equal(fixture.window.scrollY, 500);
   controller.destroy();
 });

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GitHub Quickview settings</title>
+    <link rel="stylesheet" href="options.css">
+    <script src="shortcuts.js" defer></script>
+    <script src="options.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <p class="brand"><span aria-hidden="true">›</span> GitHub Quickview</p>
+      <h1>Keyboard shortcuts</h1>
+      <p class="intro" id="shortcut-help">Select a shortcut field and press a letter or number, such as C or 1. You can also add Ctrl, Alt (Option), Shift, or Command.</p>
+      <form id="shortcuts-form">
+        <fieldset id="shortcut-fields" disabled>
+          <legend class="sr-only">Shortcut assignments</legend>
+          <div id="shortcut-rows"></div>
+          <p class="hint">Use Clear to disable a shortcut. GitHub, browser, and system shortcuts may take priority. Shortcuts stay inactive while you type in text fields.</p>
+          <div class="actions">
+            <button type="submit" id="save">Save shortcuts</button>
+            <button type="button" id="restore">Restore defaults</button>
+          </div>
+        </fieldset>
+        <p id="status" role="status" aria-live="polite">Loading shortcuts…</p>
+      </form>
+      <footer>Saved on this device. Changes apply immediately to open pull request tabs.</footer>
+    </main>
+  </body>
+</html>

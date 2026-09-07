@@ -25,6 +25,8 @@ rather than hidden in a help screen:
 • Option-T (Alt+T) — Back to top
 
 Shortcuts stay inert inside text fields, so they never fire while you are writing a review.
+Reassign or disable them in Extension options. Preferences are saved on your device,
+and open pull request tabs update immediately.
 
 The bar also shows how far through the page you are, as a small meter rather than a number
 you have to read.
@@ -34,15 +36,15 @@ WHAT IT DOES NOT DO
 Quickview never posts, approves, merges or submits anything. It moves you to GitHub's own
 controls and lets you press them yourself.
 
-It requests no permissions. It makes no network requests, so there is no analytics and no
-telemetry. It stores nothing — no cookies, no identifiers, no settings. It runs only on
-github.com pull request pages and does nothing anywhere else.
+It requests only the storage permission to save your shortcut preferences locally. It
+makes no network requests, so there is no analytics and no telemetry. It stores no page
+content, cookies or identifiers. Its command bar runs only on github.com pull request pages.
 
 There is no account and no setup. Install it and open a pull request.
 
 OPEN SOURCE
 
-MIT licensed and dependency free, at around 900 lines of JavaScript and CSS. The whole
+MIT licensed and dependency free. The whole
 extension is small enough to read before you trust it:
 https://github.com/yingzhox/github-quickview
 ---
@@ -59,8 +61,15 @@ function.
 
 ## Permission justifications
 
-The extension declares no `permissions` and no `host_permissions`. Its one content script is
-scoped to `https://github.com/*/*/pull/*`.
+The extension declares only the `storage` permission and no `host_permissions`. Its content
+scripts are scoped to `https://github.com/*/*/pull/*`.
+
+Storage justification:
+
+---
+Stores the user's keyboard shortcut assignments locally so they persist across browser
+sessions. No page content or personal data is stored or transmitted.
+---
 
 If the dashboard asks to justify host access:
 
@@ -91,4 +100,4 @@ point it at the README's "Design and privacy" section.
 | Screenshots | `out/screenshot-1.jpg` … `screenshot-4.jpg` (1280×800) |
 | Small promo tile | `out/promo-small.jpg` (440×280) |
 | Marquee promo tile | `out/promo-marquee.jpg` (1400×560) |
-| Package | `dist/github-quickview-0.4.0.zip` |
+| Package | `dist/github-quickview-0.5.0.zip` |
